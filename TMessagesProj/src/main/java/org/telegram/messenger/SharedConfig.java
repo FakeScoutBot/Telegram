@@ -291,6 +291,7 @@ public class SharedConfig {
     public static boolean inappCamera = true;
     public static boolean roundCamera16to9 = true;
     public static boolean noSoundHintShowed = false;
+    public static boolean stealthModeEnabled = false;
     public static boolean streamMedia = true;
     public static boolean streamAllVideo = false;
     public static boolean streamMkv = false;
@@ -627,6 +628,7 @@ public class SharedConfig {
             sortContactsByName = preferences.getBoolean("sortContactsByName", false);
             sortFilesByName = preferences.getBoolean("sortFilesByName", false);
             noSoundHintShowed = preferences.getBoolean("noSoundHintShowed", false);
+            stealthModeEnabled = preferences.getBoolean("stealthModeEnabled", false);
             directShareHash = preferences.getString("directShareHash2", null);
             useThreeLinesLayout = preferences.getBoolean("useThreeLinesLayout", false);
             archiveHidden = preferences.getBoolean("archiveHidden", false);
@@ -1241,6 +1243,22 @@ public class SharedConfig {
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean("noSoundHintShowed", noSoundHintShowed);
         editor.apply();
+    }
+
+    public static void setStealthModeEnabled(boolean value) {
+        if (stealthModeEnabled == value) {
+            return;
+        }
+        stealthModeEnabled = value;
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putBoolean("stealthModeEnabled", stealthModeEnabled);
+        editor.apply();
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()) {
+                MessagesController.getInstance(a).onStealthModeChanged();
+            }
+        }
     }
 
     public static void toggleRaiseToSpeak() {
