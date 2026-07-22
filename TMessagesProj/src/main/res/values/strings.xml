@@ -2062,6 +2062,7 @@
     <string name="DeletedFromYourContacts">%s deleted from your contacts</string>
     <!--usernames-->
     <string name="Username">Username</string>
+    <string name="UserID">ID</string>
     <string name="UsernameAlso">also %1$s</string>
     <string name="UsernameLinkPlaceholder">username</string>
     <string name="UsernameInUse">Sorry, this username is already taken.</string>
