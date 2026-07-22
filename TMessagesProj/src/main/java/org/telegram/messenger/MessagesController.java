@@ -10524,7 +10524,7 @@ public class MessagesController extends BaseController implements NotificationCe
         checkReadTasks();
 
         if (getUserConfig().isClientActivated()) {
-            if (!ignoreSetOnline && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
+            if (!ignoreSetOnline && !SharedConfig.stealthModeEnabled && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
                 if (ApplicationLoader.mainInterfacePausedStageQueueTime != 0 && Math.abs(ApplicationLoader.mainInterfacePausedStageQueueTime - System.currentTimeMillis()) > 1000) {
                     if (statusSettingState != 1 && (lastStatusUpdateTime == 0 || Math.abs(System.currentTimeMillis() - lastStatusUpdateTime) >= 55000 || offlineSent)) {
                         statusSettingState = 1;
@@ -10548,6 +10548,34 @@ public class MessagesController extends BaseController implements NotificationCe
                             statusRequest = 0;
                         });
                     }
+                }
+            } else if (!ignoreSetOnline && SharedConfig.stealthModeEnabled && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
+                // Stealth mode: while idle in the app (not actively sending), keep reporting
+                // "offline" to the server instead of "online". Telegram's protocol still lets
+                // the server infer activity from other requests (e.g. sending a message), so this
+                // only covers what account.updateStatus itself controls — it can't fully suppress
+                // presence once you interact, that's a server-side restriction, not a client one.
+                if (statusSettingState != 2 && (lastStatusUpdateTime == 0 || !offlineSent || Math.abs(System.currentTimeMillis() - lastStatusUpdateTime) >= 55000)) {
+                    statusSettingState = 2;
+
+                    if (statusRequest != 0) {
+                        getConnectionsManager().cancelRequest(statusRequest, true);
+                    }
+
+                    TL_account.updateStatus req = new TL_account.updateStatus();
+                    req.offline = true;
+                    statusRequest = getConnectionsManager().sendRequest(req, (response, error) -> {
+                        if (error == null) {
+                            lastStatusUpdateTime = System.currentTimeMillis();
+                            offlineSent = true;
+                            statusSettingState = 0;
+                        } else {
+                            if (lastStatusUpdateTime != 0) {
+                                lastStatusUpdateTime += 5000;
+                            }
+                        }
+                        statusRequest = 0;
+                    });
                 }
             } else if (statusSettingState != 2 && !offlineSent && Math.abs(System.currentTimeMillis() - getConnectionsManager().getPauseTime()) >= 2000) {
                 statusSettingState = 2;
@@ -10829,6 +10857,45 @@ public class MessagesController extends BaseController implements NotificationCe
         getLocationController().update();
         checkPromoInfoInternal(false);
         checkTosUpdate();
+    }
+
+    /**
+     * Called right when the user flips the Stealth Mode toggle in Settings > Privacy and Security,
+     * so the current presence gets corrected immediately instead of waiting for the next
+     * updateTimerProc tick.
+     */
+    public void onStealthModeChanged() {
+        if (!getUserConfig().isClientActivated()) {
+            return;
+        }
+        if (statusRequest != 0) {
+            getConnectionsManager().cancelRequest(statusRequest, true);
+            statusRequest = 0;
+        }
+        statusSettingState = 0;
+        if (SharedConfig.stealthModeEnabled) {
+            if (!ignoreSetOnline && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
+                TL_account.updateStatus req = new TL_account.updateStatus();
+                req.offline = true;
+                statusRequest = getConnectionsManager().sendRequest(req, (response, error) -> {
+                    if (error == null) {
+                        lastStatusUpdateTime = System.currentTimeMillis();
+                        offlineSent = true;
+                    }
+                    statusRequest = 0;
+                });
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                for (int a = 0; a < sendingTypings.length; a++) {
+                    if (sendingTypings[a] != null) {
+                        sendingTypings[a].clear();
+                    }
+                }
+            });
+        } else {
+            lastStatusUpdateTime = 0;
+            offlineSent = false;
+        }
     }
 
     private void checkTosUpdate() {
@@ -11384,6 +11451,10 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public boolean sendTyping(long dialogId, long threadMsgId, int action, String emojicon, int classGuid) {
         if (action < 0 || action >= sendingTypings.length || dialogId == 0) {
+            return false;
+        }
+        if (SharedConfig.stealthModeEnabled) {
+            // Stealth mode: never tell the server we're typing.
             return false;
         }
         final long selfId = UserConfig.getInstance(UserConfig.selectedAccount).getClientUserId();
@@ -14405,6 +14476,11 @@ public class MessagesController extends BaseController implements NotificationCe
         long dialogId = messageObject.getDialogId();
         getMessagesStorage().markMessagesContentAsRead(dialogId, arrayList, 0, 0);
         getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, dialogId, arrayList);
+        if (SharedConfig.stealthModeEnabled) {
+            // Stealth mode: keep the local "read" state for our own UI, but never tell the
+            // server the content was read — so the sender still sees it as unread.
+            return;
+        }
         if (messageObject.getId() < 0) {
             markMessageAsRead(messageObject.getDialogId(), messageObject.messageOwner.random_id, Integer.MIN_VALUE);
         } else {
@@ -14433,6 +14509,9 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public void markMentionMessageAsRead(int mid, long channelId, long did) {
         getMessagesStorage().markMentionMessageAsRead(-channelId, mid, did);
+        if (SharedConfig.stealthModeEnabled) {
+            return;
+        }
         if (channelId != 0) {
             TLRPC.TL_channels_readMessageContents req = new TLRPC.TL_channels_readMessageContents();
             req.channel = getInputChannel(channelId);
@@ -14541,6 +14620,10 @@ public class MessagesController extends BaseController implements NotificationCe
             return;
         }
         if (!DialogObject.isEncryptedDialog(dialogId)) {
+            return;
+        }
+        if (SharedConfig.stealthModeEnabled) {
+            // Stealth mode: don't tell the secret chat peer that we've read the message either.
             return;
         }
         TLRPC.EncryptedChat chat = getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
@@ -14795,6 +14878,12 @@ public class MessagesController extends BaseController implements NotificationCe
             monoForumPeerId = 0;
         }
 
+        if (createReadTask && SharedConfig.stealthModeEnabled) {
+            // Stealth mode: local unread counters are already updated above for our own UI,
+            // but we deliberately never queue or send messages.readHistory (etc.) to the server,
+            // so the dialog stays "unread" from the other side's point of view.
+            createReadTask = false;
+        }
         if (createReadTask) {
             Utilities.stageQueue.postRunnable(() -> {
                 ReadTask currentReadTask;
