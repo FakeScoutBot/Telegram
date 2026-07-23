@@ -1253,7 +1253,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                     } else if (position == secretDetailRow) {
                         privacyCell.setText(getString("SecretWebPageInfo", R.string.SecretWebPageInfo));
                     } else if (position == stealthModeDetailRow) {
-                        privacyCell.setText("When enabled, your online status, typing status, and read receipts are hidden from other users as much as Telegram's protocol allows. Sending a message will still reveal that you're online — that's a server-side restriction, not something a client can hide.");
+                        privacyCell.setText("When enabled, your online status, typing status, read receipts, and story views are hidden from other users as much as Telegram's protocol allows. Sending a message will still reveal that you're online — that's a server-side restriction, not something a client can hide.");
                     } else if (position == botsDetailRow) {
                         privacyCell.setText(getString("PrivacyBotsInfo", R.string.PrivacyBotsInfo));
                     } else if (position == privacyShadowRow) {
