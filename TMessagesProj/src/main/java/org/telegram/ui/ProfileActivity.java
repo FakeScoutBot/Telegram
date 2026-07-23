@@ -7404,7 +7404,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             return true;
         } else if (position == idRow) {
             try {
-                AndroidUtilities.addToClipboard(String.valueOf(userId));
+                AndroidUtilities.addToClipboard(String.valueOf(chatId != 0 ? chatId : userId));
                 BulletinFactory.of(this).createCopyBulletin(LocaleController.getString(R.string.TextCopied), resourcesProvider).show();
             } catch (Exception e) {
                 FileLog.e(e);
@@ -10884,6 +10884,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (ChatObject.isPublic(currentChat)) {
                     usernameRow = rowCount++;
                 }
+                idRow = rowCount++;
             }
             if (emptyRow < 0 && emptyRow2 < 0) {
                 if (hasMusic || peerColor != null || actionsView == null) {
@@ -13513,7 +13514,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         isFragmentPhoneNumber = phoneNumber != null && phoneNumber.matches("888\\d{8}");
                         detailCell.setTextAndValue(text, LocaleController.getString(isFragmentPhoneNumber ? R.string.AnonymousNumber : R.string.PhoneMobile), false);
                     } else if (position == idRow) {
-                        detailCell.setTextAndValue(String.valueOf(userId), LocaleController.getString(R.string.UserID), false);
+                        long displayedId;
+                        int dcId;
+                        if (chatId != 0) {
+                            displayedId = chatId;
+                            dcId = currentChat != null && currentChat.photo != null ? currentChat.photo.dc_id : -1;
+                        } else {
+                            TLRPC.User dcUser = getMessagesController().getUser(userId);
+                            displayedId = userId;
+                            dcId = dcUser != null && dcUser.photo != null ? dcUser.photo.dc_id : -1;
+                        }
+                        String dcCaption = dcId > 0 ? ("DC: " + dcId) : "DC: —";
+                        detailCell.setTextAndValue(String.valueOf(displayedId), dcCaption, false);
                     } else if (position == noteRow) {
                         final TLRPC.UserFull userInfo = getMessagesController().getUserFull(userId);
                         if (userInfo == null) return;
