@@ -162,6 +162,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
     private int secretDetailRow;
     private int stealthModeSectionRow;
     private int stealthModeRow;
+    private int screenshotsRow;
     private int stealthModeDetailRow;
     private int rowCount;
 
@@ -514,6 +515,11 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 if (view instanceof TextCheckCell) {
                     ((TextCheckCell) view).setChecked(SharedConfig.stealthModeEnabled);
                 }
+            } else if (position == screenshotsRow) {
+                SharedConfig.setForceAllowScreenshots(!SharedConfig.forceAllowScreenshots);
+                if (view instanceof TextCheckCell) {
+                    ((TextCheckCell) view).setChecked(SharedConfig.forceAllowScreenshots);
+                }
             } else if (position == contactsDeleteRow) {
                 if (getParentActivity() == null) {
                     return;
@@ -805,6 +811,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         secretDetailRow = rowCount++;
         stealthModeSectionRow = rowCount++;
         stealthModeRow = rowCount++;
+        screenshotsRow = rowCount++;
         stealthModeDetailRow = rowCount++;
         if (listAdapter != null && notify) {
             listAdapter.notifyDataSetChanged();
@@ -1031,7 +1038,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == passcodeRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow || position == stealthModeRow ||
+            return position == passcodeRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow || position == stealthModeRow || position == screenshotsRow ||
                     position == groupsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_INVITE) ||
                     position == lastSeenRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_LASTSEEN) ||
                     position == callsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_CALLS) ||
@@ -1253,7 +1260,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                     } else if (position == secretDetailRow) {
                         privacyCell.setText(getString("SecretWebPageInfo", R.string.SecretWebPageInfo));
                     } else if (position == stealthModeDetailRow) {
-                        privacyCell.setText("When enabled, your online status, typing status, read receipts, and story views are hidden from other users as much as Telegram's protocol allows. Sending a message will still reveal that you're online — that's a server-side restriction, not something a client can hide.");
+                        privacyCell.setText("When enabled, your online status, typing status, read receipts, and story views are hidden from other users as much as Telegram's protocol allows. Sending a message will still reveal that you're online — that's a server-side restriction, not something a client can hide.\n\nForce Allow Screenshots overrides the screenshot-blocking that Telegram normally applies in secret chats and protected (no-forwards) content, so you can always take a screenshot regardless of the chat's restrictions.");
                     } else if (position == botsDetailRow) {
                         privacyCell.setText(getString("PrivacyBotsInfo", R.string.PrivacyBotsInfo));
                     } else if (position == privacyShadowRow) {
@@ -1300,7 +1307,9 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                     } else if (position == newChatsRow) {
                         textCheckCell.setTextAndCheck(getString("ArchiveAndMute", R.string.ArchiveAndMute), archiveChats, false);
                     } else if (position == stealthModeRow) {
-                        textCheckCell.setTextAndCheck("Stealth Mode", SharedConfig.stealthModeEnabled, false);
+                        textCheckCell.setTextAndCheck("Stealth Mode", SharedConfig.stealthModeEnabled, true);
+                    } else if (position == screenshotsRow) {
+                        textCheckCell.setTextAndCheck("Force Allow Screenshots", SharedConfig.forceAllowScreenshots, false);
                     }
                     break;
                 case 5:
@@ -1414,7 +1423,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 return 1;
             } else if (position == securitySectionRow || position == advancedSectionRow || position == privacySectionRow || position == secretSectionRow || position == stealthModeSectionRow || position == botsSectionRow || position == contactsSectionRow || position == newChatsHeaderRow) {
                 return 2;
-            } else if (position == secretWebpageRow || position == contactsSyncRow || position == contactsSuggestRow || position == newChatsRow || position == stealthModeRow) {
+            } else if (position == secretWebpageRow || position == contactsSyncRow || position == contactsSuggestRow || position == newChatsRow || position == stealthModeRow || position == screenshotsRow) {
                 return 3;
             } else if (position == botsAndWebsitesShadowRow) {
                 return 4;
