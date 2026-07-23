@@ -45315,6 +45315,10 @@ public class ChatActivity extends BaseFragment implements
         allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
         boolean noforwards = isEphemeral || isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
         boolean noforwardsOrPaidMedia = noforwards || message.type == MessageObject.TYPE_PAID_MEDIA;
+        // Always show Save to Gallery / Save to Downloads (and the file Share option that
+        // travels with them) even when the chat/channel has forward restrictions enabled.
+        // Paid media that hasn't been unlocked yet is still excluded — there's nothing to save.
+        boolean noforwardsForSaveMenu = message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = !isEphemeral && message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
         boolean allowEdit = !isEphemeral && message.canEditMessage(currentChat) && !chatActivityEnterView.hasAudioToSend() && message.getDialogId() != mergeDialogId && message.type != MessageObject.TYPE_STORY && message.type != MessageObject.TYPE_POLL;
         if (allowEdit && groupedMessages != null) {
@@ -45585,24 +45589,24 @@ public class ChatActivity extends BaseFragment implements
                                     icons.add(R.drawable.msg_addbot);
                                 }
                             }
-                        } else if (selectedObject.isMusic() && !noforwardsOrPaidMedia && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
+                        } else if (selectedObject.isMusic() && !noforwardsForSaveMenu && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                             items.add(LocaleController.getString(R.string.SaveToMusic));
                             options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                             icons.add(R.drawable.msg_download);
-                        } else if (selectedObject.isDocument() && !noforwardsOrPaidMedia && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
+                        } else if (selectedObject.isDocument() && !noforwardsForSaveMenu && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                             items.add(LocaleController.getString(R.string.SaveToDownloads));
                             options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                             icons.add(R.drawable.msg_download);
                         }
                     }
-                } else if (type == 3 && !noforwardsOrPaidMedia) {
+                } else if (type == 3 && !noforwardsForSaveMenu) {
                     if (selectedObject.messageOwner.media instanceof TLRPC.TL_messageMediaWebPage && MessageObject.isNewGifDocument(selectedObject.messageOwner.media.webpage.document)) {
                         items.add(LocaleController.getString(R.string.SaveToGIFs));
                         options.add(OPTION_ADD_TO_GIFS);
                         icons.add(R.drawable.msg_gif);
                     }
                 } else if (type == 4) {
-                    if (!noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                    if (!noforwardsForSaveMenu && !selectedObject.hasRevealedExtendedMedia()) {
                         if (selectedObject.isVideo()) {
                             if (!selectedObject.needDrawBluredPreview()) {
                                 items.add(LocaleController.getString(R.string.SaveToGallery));
@@ -45643,7 +45647,7 @@ public class ChatActivity extends BaseFragment implements
                     items.add(LocaleController.getString(R.string.ApplyLocalizationFile));
                     options.add(OPTION_APPLY_LOCALIZATION_OR_THEME);
                     icons.add(R.drawable.msg_language);
-                    if (!noforwardsOrPaidMedia && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
+                    if (!noforwardsForSaveMenu && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToDownloads));
                         options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                         icons.add(R.drawable.msg_download);
@@ -45655,7 +45659,7 @@ public class ChatActivity extends BaseFragment implements
                     items.add(LocaleController.getString(R.string.ApplyThemeFile));
                     options.add(OPTION_APPLY_LOCALIZATION_OR_THEME);
                     icons.add(R.drawable.msg_theme);
-                    if (!noforwardsOrPaidMedia && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
+                    if (!noforwardsForSaveMenu && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToDownloads));
                         options.add(OPTION_SAVE_TO_DOWNLOADS_OR_MUSIC);
                         icons.add(R.drawable.msg_download);
@@ -45663,7 +45667,7 @@ public class ChatActivity extends BaseFragment implements
                         options.add(OPTION_SHARE);
                         icons.add(R.drawable.msg_shareout);
                     }
-                } else if (type == 6 && !noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia()) {
+                } else if (type == 6 && !noforwardsForSaveMenu && !selectedObject.hasRevealedExtendedMedia()) {
                     if (!selectedObject.needDrawBluredPreview() && !selectedObject.isVoiceOnce() && !selectedObject.isRoundOnce()) {
                         items.add(LocaleController.getString(R.string.SaveToGallery));
                         options.add(OPTION_SAVE_TO_GALLERY2);
@@ -45816,7 +45820,7 @@ public class ChatActivity extends BaseFragment implements
                     options.add(OPTION_VIEW_IN_TOPIC);
                     icons.add(R.drawable.msg_viewintopic);
                 }
-                if (type == 4 && !noforwardsOrPaidMedia && !selectedObject.hasRevealedExtendedMedia() && !selectedObject.needDrawBluredPreview()) {
+                if (type == 4 && !noforwardsForSaveMenu && !selectedObject.hasRevealedExtendedMedia() && !selectedObject.needDrawBluredPreview()) {
                     if (selectedObject.isVideo()) {
                         items.add(LocaleController.getString(R.string.SaveToGallery));
                         options.add(OPTION_SAVE_TO_GALLERY);
