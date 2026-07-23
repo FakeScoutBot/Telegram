@@ -27,6 +27,15 @@ public class FlagSecureReason {
         }
     }
 
+    public static void updateAllWindows() {
+        if (currentSecureReasons == null) {
+            return;
+        }
+        for (Window window : new java.util.ArrayList<>(currentSecureReasons.keySet())) {
+            updateWindowSecure(window);
+        }
+    }
+
     public void attach() {
         if (attached) {
             return;
@@ -74,6 +83,11 @@ public class FlagSecureReason {
     }
 
     public static boolean isSecuredNow(Window window) {
+        if (SharedConfig.forceAllowScreenshots) {
+            // User explicitly asked to always allow screenshots, overriding secret-chat /
+            // protected-content restrictions that would otherwise force FLAG_SECURE here.
+            return false;
+        }
         return currentSecureReasons != null && currentSecureReasons.get(window) != null;
     }
 
