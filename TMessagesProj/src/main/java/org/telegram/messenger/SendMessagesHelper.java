@@ -4353,30 +4353,15 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     caption = prefix;
                 }
 
-                if (entities == null) {
-                    entities = new ArrayList<>();
-                }
-                // scout: make the folded-in quote actually look like a quote (colored bar,
-                // background) instead of indistinguishable plain text, since we can't attach
-                // a real reply_to for a message the server no longer has.
-                TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
-                quoteEntity.offset = 0;
-                quoteEntity.length = prefix.length();
-                entities.add(quoteEntity);
-
-                if (!entities.isEmpty()) {
+                if (entities != null && !entities.isEmpty()) {
                     int shiftOffset = prefix.length() + 2;
                     for (int a = 0; a < entities.size(); a++) {
-                        if (entities.get(a) == quoteEntity) {
-                            continue;
-                        }
                         entities.get(a).offset += shiftOffset;
                     }
                 }
 
                 sendMessageParams.message = message;
                 sendMessageParams.caption = caption;
-                sendMessageParams.entities = entities;
             }
             replyToMsg = null;
             sendMessageParams.replyToMsg = null;
