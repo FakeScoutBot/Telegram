@@ -4326,24 +4326,25 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
 
         // scout: can't send a real reply_to for a message that's only preserved locally (the server
         // deleted it, so it doesn't exist there anymore) — fold it into a text quote instead, same as AyuGram.
+        // Layout: everything sits inside ONE blockquote box — first line is a blue clickable mention of
+        // whoever originally sent it, then the full original text — and the actual reply text goes below,
+        // outside the box.
         if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.deletedLocally) {
             if ((!TextUtils.isEmpty(message) || !TextUtils.isEmpty(caption) || photo != null) && !TextUtils.isEmpty(replyToMsg.messageText)) {
                 String name = "";
-                if (!DialogObject.isUserDialog(peer)) {
-                    TLObject fromPeerObject = replyToMsg.getFromPeerObject();
-                    if (fromPeerObject instanceof TLRPC.Chat) {
-                        name = ((TLRPC.Chat) fromPeerObject).title;
-                    } else if (fromPeerObject instanceof TLRPC.User) {
-                        name = ContactsController.formatName(((TLRPC.User) fromPeerObject).first_name, ((TLRPC.User) fromPeerObject).last_name);
-                    }
-                    name += "\n";
+                long mentionUserId = 0;
+                TLObject fromPeerObject = replyToMsg.getFromPeerObject();
+                if (fromPeerObject instanceof TLRPC.Chat) {
+                    name = ((TLRPC.Chat) fromPeerObject).title;
+                } else if (fromPeerObject instanceof TLRPC.User) {
+                    name = ContactsController.formatName(((TLRPC.User) fromPeerObject).first_name, ((TLRPC.User) fromPeerObject).last_name);
+                    mentionUserId = ((TLRPC.User) fromPeerObject).id;
                 }
 
+                // scout: full original text, no truncation — the whole point is showing what was actually said
                 String quotedText = replyToMsg.messageText.toString();
-                if (quotedText.length() > 20) {
-                    quotedText = quotedText.substring(0, 19) + "…";
-                }
-                String prefix = name + "> " + quotedText;
+                String header = name;
+                String prefix = TextUtils.isEmpty(header) ? quotedText : (header + "\n" + quotedText);
 
                 if (!TextUtils.isEmpty(message)) {
                     message = prefix + "\n\n" + message;
@@ -4356,22 +4357,31 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 if (entities == null) {
                     entities = new ArrayList<>();
                 }
-                // scout: make the folded-in quote actually look like a quote (colored bar,
-                // background) instead of indistinguishable plain text, since we can't attach
-                // a real reply_to for a message the server no longer has.
+                ArrayList<TLRPC.MessageEntity> addedEntities = new ArrayList<>();
+                // scout: the whole prefix (mention line + original text) sits inside one blockquote box
                 TLRPC.TL_messageEntityBlockquote quoteEntity = new TLRPC.TL_messageEntityBlockquote();
                 quoteEntity.offset = 0;
                 quoteEntity.length = prefix.length();
                 entities.add(quoteEntity);
+                addedEntities.add(quoteEntity);
+                // scout: the name itself is a blue clickable mention, same as tapping a real @mention,
+                // linking to the original sender's profile — only possible when we know their user_id
+                if (!TextUtils.isEmpty(header) && mentionUserId != 0) {
+                    TLRPC.TL_messageEntityMentionName mentionEntity = new TLRPC.TL_messageEntityMentionName();
+                    mentionEntity.offset = 0;
+                    mentionEntity.length = header.length();
+                    mentionEntity.user_id = mentionUserId;
+                    entities.add(mentionEntity);
+                    addedEntities.add(mentionEntity);
+                }
 
-                if (!entities.isEmpty()) {
-                    int shiftOffset = prefix.length() + 2;
-                    for (int a = 0; a < entities.size(); a++) {
-                        if (entities.get(a) == quoteEntity) {
-                            continue;
-                        }
-                        entities.get(a).offset += shiftOffset;
+                int shiftOffset = prefix.length() + 2;
+                for (int a = 0; a < entities.size(); a++) {
+                    TLRPC.MessageEntity e = entities.get(a);
+                    if (addedEntities.contains(e)) {
+                        continue;
                     }
+                    e.offset += shiftOffset;
                 }
 
                 sendMessageParams.message = message;

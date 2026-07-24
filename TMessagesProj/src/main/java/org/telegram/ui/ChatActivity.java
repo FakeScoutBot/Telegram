@@ -26270,15 +26270,17 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
 
-        // scout: preserve other people's messages instead of removing them; only messages we sent ourselves
-        // go through the normal deletion flow below.
+        // scout: preserve deleted messages instead of removing them (matches AyuGram: no self-message exemption)
         if (MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
             final int preserveLoadIndex = loadIndex;
             ArrayList<Integer> actuallyDeletedMessages = new ArrayList<>(markAsDeletedMessages.size());
             for (int i = 0; i < markAsDeletedMessages.size(); i++) {
                 int mid = markAsDeletedMessages.get(i);
                 MessageObject obj = messagesDict[preserveLoadIndex].get(mid);
-                if (obj != null && !obj.isOutOwner()) {
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.d("scout-antidelete: ChatActivity saw delete mid=" + mid + " channelId=" + channelId + " loadIndex=" + preserveLoadIndex + " found=" + (obj != null));
+                }
+                if (obj != null) {
                     obj.messageOwner.deletedLocally = true;
                     int idx = messages.indexOf(obj);
                     if (idx >= 0 && chatAdapter != null) {
