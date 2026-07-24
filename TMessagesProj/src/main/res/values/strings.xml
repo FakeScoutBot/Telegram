@@ -1590,10 +1590,6 @@
     <string name="SendWithoutSound">Send without sound</string>
     <string name="SendAsNewPhoto">Send as a new photo</string>
     <string name="ReplacePhoto">Replace photo</string>
-    <string name="MessageDetails">Details</string>
-    <string name="MessageDetailsTitle">Message Details</string>
-    <string name="MessageDetailsSent">Sent</string>
-    <string name="MessageDetailsId">Message ID</string>
     <string name="MessageScheduleSend">Send Now</string>
     <string name="MessageSuggestionPublishNow">Publish Now</string>
     <string name="MessageScheduleEditTime">Reschedule</string>
