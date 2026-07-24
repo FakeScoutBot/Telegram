@@ -7848,47 +7848,6 @@ public class MessagesStorage extends BaseController {
     // scout: preserves a message that was deleted by someone else (not us) so it can still be shown
     // (grayed out) locally. Called from MessagesController right after a delete update comes in, before
     // Telegram's own deletion flow runs — fully decoupled from messages_v2's internal delete machinery.
-    // scout: same as above, but for callers that only know dialogId+mid (channel/supergroup
-    // deletes) and don't already have the MessageObject in memory. Reads the message from
-    // messages_v2 itself, ON storageQueue — same queue any pending "insert this new message"
-    // write would be on — so we're guaranteed to see it if it was ever stored, instead of racing
-    // a separate synchronous read against a write that may not have landed yet.
-    public void archiveDeletedMessageIfNeeded(long dialogId, int mid) {
-        if (!MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
-            return;
-        }
-        storageQueue.postRunnable(() -> {
-            SQLiteCursor cursor = null;
-            try {
-                cursor = database.queryFinalized("SELECT data, out FROM messages_v2 WHERE uid = " + dialogId + " AND mid = " + mid + " LIMIT 1");
-                if (cursor.next()) {
-                    boolean out = cursor.intValue(1) != 0;
-                    NativeByteBuffer data = cursor.byteBufferValue(0);
-                    cursor.dispose();
-                    cursor = null;
-                    if (data != null && !out) {
-                        SQLitePreparedStatement state = database.executeFast("REPLACE INTO deleted_messages_archive VALUES(?, ?, ?)");
-                        state.requery();
-                        state.bindInteger(1, mid);
-                        state.bindLong(2, dialogId);
-                        state.bindByteBuffer(3, data);
-                        state.step();
-                        state.dispose();
-                        data.reuse();
-                    } else if (data != null) {
-                        data.reuse();
-                    }
-                }
-            } catch (Exception e) {
-                checkSQLException(e);
-            } finally {
-                if (cursor != null) {
-                    cursor.dispose();
-                }
-            }
-        });
-    }
-
     public void archiveDeletedMessageIfNeeded(long dialogId, int mid, TLRPC.Message message) {
         if (message == null || message.out) {
             return;
@@ -9911,13 +9870,6 @@ public class MessagesStorage extends BaseController {
                 if (!archiveChatsToLoad.isEmpty()) {
                     getChatsInternal(TextUtils.join(",", archiveChatsToLoad), res.chats);
                 }
-                // scout: the normal query above returns messages ordered by mid DESC (newest first).
-                // Archived messages were just appended above, which puts them all at the end
-                // (visually at the top once the list gets reversed for display) instead of at
-                // their real chronological position. Re-sort the merged list the same way the
-                // query itself orders results, so a deleted message reappears exactly where it
-                // originally was.
-                Collections.sort(res.messages, (a, b) -> Integer.compare(b.id, a.id));
             }
         } catch (Exception e) {
             res.messages.clear();

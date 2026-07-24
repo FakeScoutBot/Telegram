@@ -14033,13 +14033,6 @@ public class MessagesController extends BaseController implements NotificationCe
                             FileLog.d("checkLastDialogMessage for " + dialog.id + " has not message");
                         }
                         if (getMediaDataController().getDraft(dialog.id, 0) == null) {
-                            // scout: a PM whose only messages got cleared/deleted still has them
-                            // preserved in the deleted-messages archive when the feature is on —
-                            // don't let Telegram's normal "empty dialog" cleanup drop it from the
-                            // chat list, or the archived history becomes unreachable.
-                            if (DialogObject.isUserDialog(dialog.id) && MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
-                                return;
-                            }
                             TLRPC.Dialog currentDialog = dialogs_dict.get(dialog.id);
                             if (currentDialog == null) {
                                 if (BuildVars.LOGS_ENABLED) {
@@ -21103,20 +21096,20 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                     for (int b = 0, size2 = msgIds.size(); b < size2; b++) {
                         int msgId = msgIds.get(b);
+                        TLRPC.Message msg;
+                        long realDialogId;
                         if (possibleDialogId == 0) {
                             MessageObject obj = dialogMessagesByIds.get(msgId);
                             if (obj == null) {
                                 continue;
                             }
-                            getMessagesStorage().archiveDeletedMessageIfNeeded(obj.getDialogId(), msgId, obj.messageOwner);
+                            msg = obj.messageOwner;
+                            realDialogId = obj.getDialogId();
                         } else {
-                            // scout: don't do a separate synchronous getMessage() read here — it can
-                            // race against a just-arrived message's own "insert" write not having
-                            // landed in messages_v2 yet (send-then-immediately-delete from another
-                            // device). Let archiveDeletedMessageIfNeeded resolve it on storageQueue
-                            // itself, same queue the insert is on, so ordering is guaranteed.
-                            getMessagesStorage().archiveDeletedMessageIfNeeded(possibleDialogId, msgId);
+                            msg = getMessagesStorage().getMessage(possibleDialogId, msgId);
+                            realDialogId = possibleDialogId;
                         }
+                        getMessagesStorage().archiveDeletedMessageIfNeeded(realDialogId, msgId, msg);
                     }
                 }
                 for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
@@ -21641,8 +21634,101 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
-        // Ads (channel "sponsored messages" and bot ads) are always disabled — never fetch,
-        // never cache, never notify listeners about them.
+        SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
+        if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
+            return info;
+        }
+        if (dialogId < 0 ? !ChatObject.isChannel(getChat(-dialogId)) : !UserObject.isBot(getUser(dialogId))) {
+            return null;
+        }
+        info = new SponsoredMessagesInfo();
+        info.loading = true;
+        sponsoredMessages.put(dialogId, info);
+        SponsoredMessagesInfo infoFinal = info;
+        TLRPC.TL_messages_getSponsoredMessages req = new TLRPC.TL_messages_getSponsoredMessages();
+        req.peer = getInputPeer(dialogId);
+        getConnectionsManager().sendRequest(req, (response, error) -> {
+            ArrayList<MessageObject> result;
+            Integer posts_between;
+            if (response instanceof TLRPC.messages_SponsoredMessages) {
+                TLRPC.messages_SponsoredMessages res = (TLRPC.messages_SponsoredMessages) response;
+                if (res.messages.isEmpty()) {
+                    result = null;
+                    posts_between = null;
+                } else {
+                    if (res instanceof TLRPC.TL_messages_sponsoredMessages && (res.flags & 0x1) > 0) {
+                        posts_between = res.posts_between;
+                    } else {
+                        posts_between = null;
+                    }
+                    result = new ArrayList<>();
+                    AndroidUtilities.runOnUIThread(() -> {
+                        putUsers(res.users, false);
+                        putChats(res.chats, false);
+                    });
+                    final LongSparseArray<TLRPC.User> usersDict = new LongSparseArray<>();
+                    final LongSparseArray<TLRPC.Chat> chatsDict = new LongSparseArray<>();
+
+                    for (int a = 0; a < res.users.size(); a++) {
+                        TLRPC.User u = res.users.get(a);
+                        usersDict.put(u.id, u);
+                    }
+                    for (int a = 0; a < res.chats.size(); a++) {
+                        TLRPC.Chat c = res.chats.get(a);
+                        chatsDict.put(c.id, c);
+                    }
+
+                    int messageId = -10000000;
+                    for (int a = 0, N = res.messages.size(); a < N; a++) {
+                        TLRPC.TL_sponsoredMessage sponsoredMessage = res.messages.get(a);
+                        TLRPC.TL_message message = new TLRPC.TL_message();
+                        if (!sponsoredMessage.entities.isEmpty()) {
+                            message.entities = sponsoredMessage.entities;
+                            message.flags |= 128;
+                        }
+                        message.peer_id = getPeer(dialogId);
+                        message.flags |= 256;
+                        message.date = getConnectionsManager().getCurrentTime();
+                        message.id = messageId--;
+                        message.message = sponsoredMessage.message;
+                        if (sponsoredMessage.media != null) {
+                            message.flags |= 512;
+                        }
+                        message.media = sponsoredMessage.media;
+                        MessageObject messageObject = new MessageObject(currentAccount, message, usersDict, chatsDict, true, true);
+                        messageObject.sponsoredId = sponsoredMessage.random_id;
+                        messageObject.sponsoredTitle = sponsoredMessage.title;
+                        messageObject.sponsoredUrl = sponsoredMessage.url;
+                        messageObject.sponsoredRecommended = sponsoredMessage.recommended;
+                        messageObject.sponsoredPhoto = sponsoredMessage.photo;
+                        messageObject.sponsoredInfo = sponsoredMessage.sponsor_info;
+                        messageObject.sponsoredAdditionalInfo = sponsoredMessage.additional_info;
+                        messageObject.sponsoredButtonText = sponsoredMessage.button_text;
+                        messageObject.sponsoredCanReport = sponsoredMessage.can_report;
+                        messageObject.sponsoredColor = sponsoredMessage.color;
+                        messageObject.sponsoredMedia = sponsoredMessage.media;
+                        messageObject.setType();
+                        messageObject.textLayoutBlocks = new ArrayList<>();
+                        messageObject.generateThumbs(true);
+                        result.add(messageObject);
+                    }
+                }
+            } else {
+                result = null;
+                posts_between = null;
+            }
+            AndroidUtilities.runOnUIThread(() -> {
+                if (result == null) {
+                    sponsoredMessages.remove(dialogId);
+                } else {
+                    infoFinal.loadTime = SystemClock.elapsedRealtime();
+                    infoFinal.loading = false;
+                    infoFinal.messages = result;
+                    infoFinal.posts_between = posts_between;
+                    getNotificationCenter().postNotificationName(NotificationCenter.didLoadSponsoredMessages, dialogId, result);
+                }
+            });
+        });
         return null;
     }
 
