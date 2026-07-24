@@ -7855,6 +7855,9 @@ public class MessagesStorage extends BaseController {
     // a separate synchronous read against a write that may not have landed yet.
     public void archiveDeletedMessageIfNeeded(long dialogId, int mid) {
         if (!MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
+            if (BuildVars.LOGS_ENABLED) {
+                FileLog.d("scout-antidelete: setting disabled, skipping dialogId=" + dialogId + " mid=" + mid);
+            }
             return;
         }
         storageQueue.postRunnable(() -> {
@@ -7862,11 +7865,10 @@ public class MessagesStorage extends BaseController {
             try {
                 cursor = database.queryFinalized("SELECT data, out FROM messages_v2 WHERE uid = " + dialogId + " AND mid = " + mid + " LIMIT 1");
                 if (cursor.next()) {
-                    boolean out = cursor.intValue(1) != 0;
                     NativeByteBuffer data = cursor.byteBufferValue(0);
                     cursor.dispose();
                     cursor = null;
-                    if (data != null && !out) {
+                    if (data != null) {
                         SQLitePreparedStatement state = database.executeFast("REPLACE INTO deleted_messages_archive VALUES(?, ?, ?)");
                         state.requery();
                         state.bindInteger(1, mid);
@@ -7875,12 +7877,24 @@ public class MessagesStorage extends BaseController {
                         state.step();
                         state.dispose();
                         data.reuse();
-                    } else if (data != null) {
-                        data.reuse();
+                        if (BuildVars.LOGS_ENABLED) {
+                            FileLog.d("scout-antidelete: ARCHIVED dialogId=" + dialogId + " mid=" + mid);
+                        }
+                    } else {
+                        if (BuildVars.LOGS_ENABLED) {
+                            FileLog.d("scout-antidelete: found row but data blob was null, dialogId=" + dialogId + " mid=" + mid);
+                        }
+                    }
+                } else {
+                    if (BuildVars.LOGS_ENABLED) {
+                        FileLog.d("scout-antidelete: NOT FOUND in messages_v2 dialogId=" + dialogId + " mid=" + mid);
                     }
                 }
             } catch (Exception e) {
                 checkSQLException(e);
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.d("scout-antidelete: EXCEPTION dialogId=" + dialogId + " mid=" + mid + " : " + e);
+                }
             } finally {
                 if (cursor != null) {
                     cursor.dispose();
@@ -7890,7 +7904,7 @@ public class MessagesStorage extends BaseController {
     }
 
     public void archiveDeletedMessageIfNeeded(long dialogId, int mid, TLRPC.Message message) {
-        if (message == null || message.out) {
+        if (message == null) {
             return;
         }
         if (!MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
@@ -9876,40 +9890,62 @@ public class MessagesStorage extends BaseController {
                 getAnimatedEmoji(TextUtils.join(",", animatedEmojiToLoad), res.animatedEmoji);
             }
 
-            // scout: on first opening a chat (not scrolling into older history, not threads/scheduled/quick-replies),
-            // splice back in any messages that were deleted by other people but preserved locally.
-            if (!scheduled && !quickReplies && threadMessageId == 0 && max_id == 0 && processMessages && MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
-                SQLiteCursor archiveCursor = null;
-                ArrayList<Long> archiveUsersToLoad = new ArrayList<>();
-                ArrayList<Long> archiveChatsToLoad = new ArrayList<>();
-                try {
-                    archiveCursor = database.queryFinalized("SELECT mid, data FROM deleted_messages_archive WHERE uid = ?", dialogId);
-                    while (archiveCursor.next()) {
-                        NativeByteBuffer archiveData = archiveCursor.byteBufferValue(1);
-                        if (archiveData == null) {
-                            continue;
+            // scout: splice back in any messages that were deleted by other people but preserved locally,
+            // matched to the actual id-range loaded in THIS call (not just "max_id==0"/opening at the very
+            // latest message) — busier groups/channels usually open at the first-unread marker instead of
+            // the tip, which has a non-zero max_id, so restricting to max_id==0 silently skipped them there.
+            if (!scheduled && !quickReplies && threadMessageId == 0 && processMessages && MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
+                int rangeMinId = Integer.MAX_VALUE;
+                int rangeMaxId = Integer.MIN_VALUE;
+                for (int i = 0; i < res.messages.size(); i++) {
+                    int id = res.messages.get(i).id;
+                    if (id < rangeMinId) {
+                        rangeMinId = id;
+                    }
+                    if (id > rangeMaxId) {
+                        rangeMaxId = id;
+                    }
+                }
+                boolean haveRange = rangeMinId <= rangeMaxId;
+                if (haveRange || max_id == 0) {
+                    SQLiteCursor archiveCursor = null;
+                    ArrayList<Long> archiveUsersToLoad = new ArrayList<>();
+                    ArrayList<Long> archiveChatsToLoad = new ArrayList<>();
+                    try {
+                        if (haveRange) {
+                            archiveCursor = database.queryFinalized("SELECT mid, data FROM deleted_messages_archive WHERE uid = ? AND mid >= ? AND mid <= ?", dialogId, rangeMinId, rangeMaxId);
+                        } else {
+                            // nothing came back from the normal query (e.g. the whole loaded window was
+                            // deletions) — only safe to merge unconditionally when it's a fresh open at the tip
+                            archiveCursor = database.queryFinalized("SELECT mid, data FROM deleted_messages_archive WHERE uid = ?", dialogId);
                         }
-                        TLRPC.Message archivedMessage = TLRPC.Message.TLdeserialize(archiveData, archiveData.readInt32(false), false);
-                        archivedMessage.readAttachPath(archiveData, currentUserId);
-                        archiveData.reuse();
-                        archivedMessage.id = archiveCursor.intValue(0);
-                        archivedMessage.dialog_id = dialogId;
-                        archivedMessage.deletedLocally = true;
-                        res.messages.add(archivedMessage);
-                        addUsersAndChatsFromMessage(archivedMessage, archiveUsersToLoad, archiveChatsToLoad, animatedEmojiToLoad);
+                        while (archiveCursor.next()) {
+                            NativeByteBuffer archiveData = archiveCursor.byteBufferValue(1);
+                            if (archiveData == null) {
+                                continue;
+                            }
+                            TLRPC.Message archivedMessage = TLRPC.Message.TLdeserialize(archiveData, archiveData.readInt32(false), false);
+                            archivedMessage.readAttachPath(archiveData, currentUserId);
+                            archiveData.reuse();
+                            archivedMessage.id = archiveCursor.intValue(0);
+                            archivedMessage.dialog_id = dialogId;
+                            archivedMessage.deletedLocally = true;
+                            res.messages.add(archivedMessage);
+                            addUsersAndChatsFromMessage(archivedMessage, archiveUsersToLoad, archiveChatsToLoad, animatedEmojiToLoad);
+                        }
+                    } catch (Exception e) {
+                        checkSQLException(e);
+                    } finally {
+                        if (archiveCursor != null) {
+                            archiveCursor.dispose();
+                        }
                     }
-                } catch (Exception e) {
-                    checkSQLException(e);
-                } finally {
-                    if (archiveCursor != null) {
-                        archiveCursor.dispose();
+                    if (!archiveUsersToLoad.isEmpty()) {
+                        getUsersInternal(archiveUsersToLoad, res.users);
                     }
-                }
-                if (!archiveUsersToLoad.isEmpty()) {
-                    getUsersInternal(archiveUsersToLoad, res.users);
-                }
-                if (!archiveChatsToLoad.isEmpty()) {
-                    getChatsInternal(TextUtils.join(",", archiveChatsToLoad), res.chats);
+                    if (!archiveChatsToLoad.isEmpty()) {
+                        getChatsInternal(TextUtils.join(",", archiveChatsToLoad), res.chats);
+                    }
                 }
                 // scout: the normal query above returns messages ordered by mid DESC (newest first).
                 // Archived messages were just appended above, which puts them all at the end
