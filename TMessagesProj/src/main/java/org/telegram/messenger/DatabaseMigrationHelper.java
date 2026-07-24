@@ -1685,6 +1685,8 @@ public class DatabaseMigrationHelper {
             database.executeFast("CREATE INDEX IF NOT EXISTS dialog_date_idx_welcome_messages ON welcome_messages(dialog_id, date);").stepThis().dispose();
             database.executeFast("CREATE INDEX IF NOT EXISTS reply_to_idx_welcome_messages ON welcome_messages(mid, reply_to_message_id);").stepThis().dispose();
             database.executeFast("CREATE INDEX IF NOT EXISTS idx_to_reply_welcome_messages ON welcome_messages(reply_to_message_id, mid);").stepThis().dispose();
+            // scout: preserves other people's messages that got deleted so they can still be rendered (grayed out) locally
+            database.executeFast("CREATE TABLE IF NOT EXISTS deleted_messages_archive(mid INTEGER, uid INTEGER, data BLOB, PRIMARY KEY(mid, uid))").stepThis().dispose();
             database.executeFast("PRAGMA user_version = 177").stepThis().dispose();
             version = 177;
         }
