@@ -21103,15 +21103,9 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                     for (int b = 0, size2 = msgIds.size(); b < size2; b++) {
                         int msgId = msgIds.get(b);
-                        if (BuildVars.LOGS_ENABLED) {
-                            FileLog.d("scout-antidelete: hook saw delete possibleDialogId=" + possibleDialogId + " msgId=" + msgId);
-                        }
                         if (possibleDialogId == 0) {
                             MessageObject obj = dialogMessagesByIds.get(msgId);
                             if (obj == null) {
-                                if (BuildVars.LOGS_ENABLED) {
-                                    FileLog.d("scout-antidelete: dialogId==0 case, no in-memory object for msgId=" + msgId + ", skipping");
-                                }
                                 continue;
                             }
                             getMessagesStorage().archiveDeletedMessageIfNeeded(obj.getDialogId(), msgId, obj.messageOwner);
