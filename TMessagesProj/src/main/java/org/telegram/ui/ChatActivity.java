@@ -1238,7 +1238,6 @@ public class ChatActivity extends BaseFragment implements
     public final static int OPTION_SUGGESTION_ADD_OFFER = 114;
 
     public final static int OPTION_VIEW_STATISTICS = 115;
-    public final static int OPTION_MESSAGE_DETAILS = 116;
 
     private final static int[] allowedNotificationsDuringChatListAnimations = new int[]{
             NotificationCenter.messagesRead,
@@ -33158,32 +33157,6 @@ public class ChatActivity extends BaseFragment implements
                 undoView.showWithAction(0, UndoView.ACTION_MESSAGE_COPIED, null);
                 break;
             }
-            case OPTION_MESSAGE_DETAILS: {
-                if (getParentActivity() == null || selectedObject == null || selectedObject.messageOwner == null) {
-                    break;
-                }
-                java.text.SimpleDateFormat detailsDateFormat = new java.text.SimpleDateFormat("dd MMMM yyyy, HH:mm:ss", LocaleController.getInstance().getCurrentLocale());
-                detailsDateFormat.setTimeZone(java.util.TimeZone.getDefault());
-
-                final int detailsMessageId = selectedObject.getId();
-                StringBuilder detailsMessage = new StringBuilder();
-                detailsMessage.append(LocaleController.getString(R.string.MessageDetailsSent)).append(": ").append(detailsDateFormat.format(new java.util.Date((long) selectedObject.messageOwner.date * 1000L)));
-                detailsMessage.append("\n").append(LocaleController.getString(R.string.MessageDetailsId)).append(": ").append(detailsMessageId);
-
-                AlertDialog.Builder detailsBuilder = new AlertDialog.Builder(getParentActivity());
-                detailsBuilder.setTitle(LocaleController.getString(R.string.MessageDetailsTitle));
-                detailsBuilder.setMessage(detailsMessage.toString());
-                detailsBuilder.setPositiveButton(LocaleController.getString(R.string.OK), null);
-                detailsBuilder.setNeutralButton(LocaleController.getString(R.string.Copy), (dialog, which) -> {
-                    AndroidUtilities.addToClipboard(String.valueOf(detailsMessageId));
-                    createUndoView();
-                    if (undoView != null) {
-                        undoView.showWithAction(0, UndoView.ACTION_MESSAGE_COPIED, null);
-                    }
-                });
-                showDialog(detailsBuilder.create());
-                break;
-            }
             case OPTION_SAVE_TO_GALLERY: {
                 if (Build.VERSION.SDK_INT >= 23 && (Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getParentActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                     getParentActivity().requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 4);
@@ -45493,11 +45466,6 @@ public class ChatActivity extends BaseFragment implements
                 options.add(OPTION_GIFT);
                 icons.add(R.drawable.menu_gift);
             }
-            if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
-                items.add(LocaleController.getString(R.string.MessageDetails));
-                options.add(OPTION_MESSAGE_DETAILS);
-                icons.add(R.drawable.msg_info);
-            }
             if (message.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat) && (threadMessageObjects == null || !threadMessageObjects.contains(message)) && !(message != null && message.messageOwner != null && message.messageOwner.action instanceof TLRPC.TL_messageActionTopicCreate)) {
                 items.add(LocaleController.getString(chatMode == MODE_SAVED && threadMessageId != getUserConfig().getClientUserId() ? R.string.Remove : R.string.Delete));
                 options.add(OPTION_DELETE);
@@ -45912,11 +45880,6 @@ public class ChatActivity extends BaseFragment implements
                         options.add(OPTION_CALL);
                         icons.add(R.drawable.msg_callback);
                     }
-                }
-                if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
-                    items.add(LocaleController.getString(R.string.MessageDetails));
-                    options.add(OPTION_MESSAGE_DETAILS);
-                    icons.add(R.drawable.msg_info);
                 }
                 items.add(LocaleController.getString(chatMode == MODE_SAVED && threadMessageId != getUserConfig().getClientUserId() ? R.string.Remove : R.string.Delete));
                 options.add(OPTION_DELETE);
