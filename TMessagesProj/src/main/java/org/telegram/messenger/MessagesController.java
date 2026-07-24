@@ -21177,32 +21177,6 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
             }
             if (deletedMessagesFinal != null) {
-                // scout: shallow, decoupled hook — snapshot others' messages before continuing with the
-                // normal delete flow below (untouched). Doesn't reach into MessagesStorage's delete internals.
-                for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
-                    long possibleDialogId = deletedMessagesFinal.keyAt(a);
-                    ArrayList<Integer> msgIds = deletedMessagesFinal.valueAt(a);
-                    if (msgIds == null) {
-                        continue;
-                    }
-                    for (int b = 0, size2 = msgIds.size(); b < size2; b++) {
-                        int msgId = msgIds.get(b);
-                        TLRPC.Message msg;
-                        long realDialogId;
-                        if (possibleDialogId == 0) {
-                            MessageObject obj = dialogMessagesByIds.get(msgId);
-                            if (obj == null) {
-                                continue;
-                            }
-                            msg = obj.messageOwner;
-                            realDialogId = obj.getDialogId();
-                        } else {
-                            msg = getMessagesStorage().getMessage(possibleDialogId, msgId);
-                            realDialogId = possibleDialogId;
-                        }
-                        getMessagesStorage().archiveDeletedMessageIfNeeded(realDialogId, msgId, msg);
-                    }
-                }
                 for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                     long dialogId = deletedMessagesFinal.keyAt(a);
                     ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);

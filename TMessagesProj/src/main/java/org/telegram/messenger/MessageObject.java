@@ -12199,7 +12199,7 @@ public class MessageObject {
     }
 
     public boolean isReactionsAvailable() {
-        return !isEditing() && !isSponsored() && isSent() && !isEphemeral() && !isExpiredStory() && !messageOwner.deletedLocally && canSetReaction();
+        return !isEditing() && !isSponsored() && isSent() && !isEphemeral() && !isExpiredStory() && canSetReaction();
     }
 
     public boolean isPaidReactionChosen() {
