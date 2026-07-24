@@ -117,7 +117,7 @@ public class MessagesStorage extends BaseController {
         }
     }
 
-    public final static int LAST_DB_VERSION = 176;
+    public final static int LAST_DB_VERSION = 177;
     private boolean databaseMigrationInProgress;
     public boolean showClearDatabaseAlert;
 
@@ -558,6 +558,9 @@ public class MessagesStorage extends BaseController {
         database.executeFast("CREATE INDEX IF NOT EXISTS reply_to_idx_messages_v2 ON messages_v2(mid, reply_to_message_id);").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS idx_to_reply_messages_v2 ON messages_v2(reply_to_message_id, mid);").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS uid_mid_groupid_messages_v2 ON messages_v2(uid, mid, group_id);").stepThis().dispose();
+
+        // scout: preserves other people's messages that got deleted so they can still be rendered (grayed out) locally
+        database.executeFast("CREATE TABLE deleted_messages_archive(mid INTEGER, uid INTEGER, data BLOB, PRIMARY KEY(mid, uid))").stepThis().dispose();
 
         database.executeFast("CREATE TABLE saved_dialogs(did INTEGER, date INTEGER, last_mid INTEGER, pinned INTEGER, flags INTEGER, folder_id INTEGER, last_mid_group INTEGER, count INTEGER, forumChatId INTEGER, unread_count INTEGER, max_read_id INTEGER, read_outbox INTEGER, PRIMARY KEY (did, forumChatId))").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS date_idx_4_saved_dialogs ON saved_dialogs(date);").stepThis().dispose();
@@ -7842,6 +7845,34 @@ public class MessagesStorage extends BaseController {
         return ref.get();
     }
 
+    // scout: preserves a message that was deleted by someone else (not us) so it can still be shown
+    // (grayed out) locally. Called from MessagesController right after a delete update comes in, before
+    // Telegram's own deletion flow runs — fully decoupled from messages_v2's internal delete machinery.
+    public void archiveDeletedMessageIfNeeded(long dialogId, int mid, TLRPC.Message message) {
+        if (message == null || message.out) {
+            return;
+        }
+        if (!MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
+            return;
+        }
+        storageQueue.postRunnable(() -> {
+            try {
+                NativeByteBuffer data = new NativeByteBuffer(message.getObjectSize());
+                message.serializeToStream(data);
+                SQLitePreparedStatement state = database.executeFast("REPLACE INTO deleted_messages_archive VALUES(?, ?, ?)");
+                state.requery();
+                state.bindInteger(1, mid);
+                state.bindLong(2, dialogId);
+                state.bindByteBuffer(3, data);
+                state.step();
+                state.dispose();
+                data.reuse();
+            } catch (Exception e) {
+                checkSQLException(e);
+            }
+        });
+    }
+
     public boolean hasInviteMeMessage(long chatId) {
         CountDownLatch countDownLatch = new CountDownLatch(1);
         boolean[] result = new boolean[1];
@@ -9802,6 +9833,43 @@ public class MessagesStorage extends BaseController {
             if (!animatedEmojiToLoad.isEmpty()) {
                 res.animatedEmoji = new ArrayList<>();
                 getAnimatedEmoji(TextUtils.join(",", animatedEmojiToLoad), res.animatedEmoji);
+            }
+
+            // scout: on first opening a chat (not scrolling into older history, not threads/scheduled/quick-replies),
+            // splice back in any messages that were deleted by other people but preserved locally.
+            if (!scheduled && !quickReplies && threadMessageId == 0 && max_id == 0 && processMessages && MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
+                SQLiteCursor archiveCursor = null;
+                ArrayList<Long> archiveUsersToLoad = new ArrayList<>();
+                ArrayList<Long> archiveChatsToLoad = new ArrayList<>();
+                try {
+                    archiveCursor = database.queryFinalized("SELECT mid, data FROM deleted_messages_archive WHERE uid = ?", dialogId);
+                    while (archiveCursor.next()) {
+                        NativeByteBuffer archiveData = archiveCursor.byteBufferValue(1);
+                        if (archiveData == null) {
+                            continue;
+                        }
+                        TLRPC.Message archivedMessage = TLRPC.Message.TLdeserialize(archiveData, archiveData.readInt32(false), false);
+                        archivedMessage.readAttachPath(archiveData, currentUserId);
+                        archiveData.reuse();
+                        archivedMessage.id = archiveCursor.intValue(0);
+                        archivedMessage.dialog_id = dialogId;
+                        archivedMessage.deletedLocally = true;
+                        res.messages.add(archivedMessage);
+                        addUsersAndChatsFromMessage(archivedMessage, archiveUsersToLoad, archiveChatsToLoad, animatedEmojiToLoad);
+                    }
+                } catch (Exception e) {
+                    checkSQLException(e);
+                } finally {
+                    if (archiveCursor != null) {
+                        archiveCursor.dispose();
+                    }
+                }
+                if (!archiveUsersToLoad.isEmpty()) {
+                    getUsersInternal(archiveUsersToLoad, res.users);
+                }
+                if (!archiveChatsToLoad.isEmpty()) {
+                    getChatsInternal(TextUtils.join(",", archiveChatsToLoad), res.chats);
+                }
             }
         } catch (Exception e) {
             res.messages.clear();

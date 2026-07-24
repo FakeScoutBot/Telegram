@@ -4240,6 +4240,49 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             caption = "";
         }
 
+        // scout: can't send a real reply_to for a message that's only preserved locally (the server
+        // deleted it, so it doesn't exist there anymore) — fold it into a text quote instead, same as AyuGram.
+        if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.deletedLocally) {
+            if ((!TextUtils.isEmpty(message) || !TextUtils.isEmpty(caption) || photo != null) && !TextUtils.isEmpty(replyToMsg.messageText)) {
+                String name = "";
+                if (!DialogObject.isUserDialog(peer)) {
+                    TLObject fromPeerObject = replyToMsg.getFromPeerObject();
+                    if (fromPeerObject instanceof TLRPC.Chat) {
+                        name = ((TLRPC.Chat) fromPeerObject).title;
+                    } else if (fromPeerObject instanceof TLRPC.User) {
+                        name = ContactsController.formatName(((TLRPC.User) fromPeerObject).first_name, ((TLRPC.User) fromPeerObject).last_name);
+                    }
+                    name += "\n";
+                }
+
+                String quotedText = replyToMsg.messageText.toString();
+                if (quotedText.length() > 20) {
+                    quotedText = quotedText.substring(0, 19) + "…";
+                }
+                String prefix = name + "> " + quotedText;
+
+                if (!TextUtils.isEmpty(message)) {
+                    message = prefix + "\n\n" + message;
+                } else if (!TextUtils.isEmpty(caption)) {
+                    caption = prefix + "\n\n" + caption;
+                } else if (photo != null) {
+                    caption = prefix;
+                }
+
+                if (entities != null && !entities.isEmpty()) {
+                    int shiftOffset = prefix.length() + 2;
+                    for (int a = 0; a < entities.size(); a++) {
+                        entities.get(a).offset += shiftOffset;
+                    }
+                }
+
+                sendMessageParams.message = message;
+                sendMessageParams.caption = caption;
+            }
+            replyToMsg = null;
+            sendMessageParams.replyToMsg = null;
+        }
+
         long _payStars = getMessagesController().getSendPaidMessagesStars(peer);
         if (_payStars <= 0) {
             _payStars = DialogObject.getMessagesStarsPrice(getMessagesController().isUserContactBlocked(peer));

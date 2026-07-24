@@ -26087,6 +26087,31 @@ public class ChatActivity extends BaseFragment implements
         } else if (channelId != 0) {
             return;
         }
+
+        // scout: preserve other people's messages instead of removing them; only messages we sent ourselves
+        // go through the normal deletion flow below.
+        if (MessagesController.getGlobalMainSettings().getBoolean("show_deleted_messages", true)) {
+            final int preserveLoadIndex = loadIndex;
+            ArrayList<Integer> actuallyDeletedMessages = new ArrayList<>(markAsDeletedMessages.size());
+            for (int i = 0; i < markAsDeletedMessages.size(); i++) {
+                int mid = markAsDeletedMessages.get(i);
+                MessageObject obj = messagesDict[preserveLoadIndex].get(mid);
+                if (obj != null && !obj.isOutOwner()) {
+                    obj.messageOwner.deletedLocally = true;
+                    int idx = messages.indexOf(obj);
+                    if (idx >= 0 && chatAdapter != null) {
+                        chatAdapter.notifyItemChanged(chatAdapter.messagesStartRow + idx);
+                    }
+                } else {
+                    actuallyDeletedMessages.add(mid);
+                }
+            }
+            markAsDeletedMessages = actuallyDeletedMessages;
+            if (markAsDeletedMessages.isEmpty()) {
+                return;
+            }
+        }
+
         if (replyingMessageObject != null && markAsDeletedMessages.contains(replyingMessageObject.getId())) {
             replyingMessageObject = null;
             replyingQuote = null;
@@ -45288,6 +45313,9 @@ public class ChatActivity extends BaseFragment implements
         final int type = getMessageType(message);
         final boolean isEphemeral = message.isEphemeral();
         final boolean isEphemeralFromBot = isEphemeral && !message.isOut();
+        // scout: messages preserved after being deleted by someone else — allow reply/copy/forward as normal,
+        // but disallow pin/edit/reactions since the sender no longer considers the message to exist
+        final boolean isLocallyDeleted = message.messageOwner != null && message.messageOwner.deletedLocally;
 
 
         boolean allowChatActions = true;
@@ -45312,7 +45340,7 @@ public class ChatActivity extends BaseFragment implements
         if (UserObject.isReplyUser(dialog_id) || dialog_id == UserObject.VERIFY) {
             allowPin = false;
         }
-        allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
+        allowPin = allowPin && !isLocallyDeleted && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
         boolean noforwards = isEphemeral || isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
         boolean noforwardsOrPaidMedia = noforwards || message.type == MessageObject.TYPE_PAID_MEDIA;
         // Always show Save to Gallery / Save to Downloads / Copy (and the file Share option
@@ -45320,7 +45348,7 @@ public class ChatActivity extends BaseFragment implements
         // Paid media that hasn't been unlocked yet is still excluded — there's nothing to save/copy.
         boolean noforwardsBypass = message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = !isEphemeral && message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
-        boolean allowEdit = !isEphemeral && message.canEditMessage(currentChat) && !chatActivityEnterView.hasAudioToSend() && message.getDialogId() != mergeDialogId && message.type != MessageObject.TYPE_STORY && message.type != MessageObject.TYPE_POLL;
+        boolean allowEdit = !isEphemeral && !isLocallyDeleted && message.canEditMessage(currentChat) && !chatActivityEnterView.hasAudioToSend() && message.getDialogId() != mergeDialogId && message.type != MessageObject.TYPE_STORY && message.type != MessageObject.TYPE_POLL;
         if (allowEdit && groupedMessages != null) {
             int captionsCount = 0;
             for (int a = 0, N = groupedMessages.messages.size(); a < N; a++) {

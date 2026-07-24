@@ -18450,6 +18450,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentTimeString = TextUtils.concat(formatString(R.string.MessageScheduledRepeatSeconds, period), ", ", currentTimeString);
             }
         }
+        // scout: mark messages that were deleted by their sender but preserved locally
+        if (currentMessageObject.messageOwner != null && currentMessageObject.messageOwner.deletedLocally) {
+            currentTimeString = TextUtils.concat("🗑 ", currentTimeString);
+        }
         timeTextWidth = timeWidth = (int) Math.ceil(Theme.chat_timePaint.measureText(currentTimeString, 0, currentTimeString == null ? 0 : currentTimeString.length()));
         if (currentMessageObject.scheduled && currentMessageObject.messageOwner.date == 0x7FFFFFFE || currentMessageObject.notime) {
             timeWidth -= dp(8);
@@ -20017,7 +20021,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     @SuppressLint("WrongCall")
     @Override
     protected void onDraw(Canvas canvas) {
-        drawInternal(canvas);
+        // scout: gray out messages that were deleted by their sender but preserved locally
+        if (currentMessageObject != null && currentMessageObject.messageOwner != null && currentMessageObject.messageOwner.deletedLocally) {
+            int deletedLayer = canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), 130);
+            drawInternal(canvas);
+            canvas.restoreToCount(deletedLayer);
+        } else {
+            drawInternal(canvas);
+        }
     }
     public void drawInternal(Canvas canvas) {
         if (currentMessageObject == null) {

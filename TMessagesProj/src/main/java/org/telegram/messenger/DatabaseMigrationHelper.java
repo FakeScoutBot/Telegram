@@ -1679,6 +1679,12 @@ public class DatabaseMigrationHelper {
             database.executeFast("PRAGMA user_version = 176").stepThis().dispose();
             version = 176;
         }
+        if (version == 176) {
+            // scout: preserves other people's messages that got deleted so they can still be rendered (grayed out) locally
+            database.executeFast("CREATE TABLE IF NOT EXISTS deleted_messages_archive(mid INTEGER, uid INTEGER, data BLOB, PRIMARY KEY(mid, uid))").stepThis().dispose();
+            database.executeFast("PRAGMA user_version = 177").stepThis().dispose();
+            version = 177;
+        }
 
         return version;
     }
