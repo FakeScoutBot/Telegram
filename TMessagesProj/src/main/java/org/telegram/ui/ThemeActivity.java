@@ -160,7 +160,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
     private int raiseToListenRow;
     private int nextMediaTapRow;
     private int sendByEnterRow;
-    private int showDeletedMessagesRow;
     private int saveToGalleryOption1Row;
     private int saveToGalleryOption2Row;
     private int saveToGallerySectionRow;
@@ -591,7 +590,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         raiseToListenRow = -1;
         nextMediaTapRow = -1;
         sendByEnterRow = -1;
-        showDeletedMessagesRow = -1;
         saveToGalleryOption1Row = -1;
         saveToGalleryOption2Row = -1;
         saveToGallerySectionRow = -1;
@@ -706,7 +704,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 sensitiveContentRow = rowCount++;
             }
             sendByEnterRow = rowCount++;
-            showDeletedMessagesRow = rowCount++;
             distanceRow = rowCount++;
             otherSectionRow = rowCount++;
         } else {
@@ -1129,15 +1126,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 editor.commit();
                 if (view instanceof TextCheckCell) {
                     ((TextCheckCell) view).setChecked(!send);
-                }
-            } else if (position == showDeletedMessagesRow) {
-                SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-                boolean show = preferences.getBoolean("show_deleted_messages", true);
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.putBoolean("show_deleted_messages", !show);
-                editor.commit();
-                if (view instanceof TextCheckCell) {
-                    ((TextCheckCell) view).setChecked(!show);
                 }
             } else if (position == raiseToSpeakRow) {
                 SharedConfig.toggleRaiseToSpeak();
@@ -2617,9 +2605,6 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     } else if (position == sendByEnterRow) {
                         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
                         textCheckCell.setTextAndCheck(getString("SendByEnter", R.string.SendByEnter), preferences.getBoolean("send_by_enter", false), true);
-                    } else if (position == showDeletedMessagesRow) {
-                        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-                        textCheckCell.setTextAndValueAndCheck("Show deleted messages", "Keep and show messages that others deleted, grayed out in the chat", preferences.getBoolean("show_deleted_messages", true), true, true);
                     } else if (position == raiseToSpeakRow) {
                         textCheckCell.setTextAndValueAndCheck(getString("RaiseToSpeak", R.string.RaiseToSpeak), getString("RaiseToSpeakInfo", R.string.RaiseToSpeakInfo), SharedConfig.raiseToSpeak, true, true);
                     } else if (position == raiseToListenRow) {
@@ -2769,7 +2754,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 return TYPE_BRIGHTNESS;
             } else if (position == scheduleLocationRow || position == sendByEnterRow ||
                     position == raiseToSpeakRow || position == raiseToListenRow || position == pauseOnRecordRow ||
-                    position == directShareRow || position == chatBlurRow || position == pauseOnMediaRow || position == nextMediaTapRow || position == sensitiveContentRow || position == showDeletedMessagesRow) {
+                    position == directShareRow || position == chatBlurRow || position == pauseOnMediaRow || position == nextMediaTapRow || position == sensitiveContentRow) {
                 return TYPE_TEXT_CHECK;
             } else if (position == textSizeRow) {
                 return TYPE_TEXT_SIZE;
