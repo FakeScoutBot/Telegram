@@ -30834,8 +30834,10 @@ public class ChatActivity extends BaseFragment implements
             final boolean showSponsorInfo = !suggestEdit && !isEphemeral && selectedObject != null && selectedObject.isSponsored() && (selectedObject.sponsoredInfo != null || selectedObject.sponsoredAdditionalInfo != null || selectedObject.sponsoredUrl != null && !selectedObject.sponsoredUrl.startsWith("https://" + getMessagesController().linkPrefix));
             final boolean isReactionsAvailableFinal = !suggestEdit && isReactionsAvailable;
 
+            final boolean showMessageDetails = message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty);
+
             int flags = 0;
-            if (isReactionsViewAvailable || showMessageSeen || showSponsorInfo) {
+            if (isReactionsViewAvailable || showMessageSeen || showSponsorInfo || showMessageDetails) {
                 flags |= ActionBarPopupWindow.ActionBarPopupWindowLayout.FLAG_USE_SWIPEBACK;
             }
 
@@ -30850,7 +30852,7 @@ public class ChatActivity extends BaseFragment implements
             boolean addGap = false;
 
             final int[] messageDetailsForegroundIndex = new int[] { -1 };
-            if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
+            if (showMessageDetails) {
                 java.text.SimpleDateFormat detailsDateFormat = new java.text.SimpleDateFormat("dd MMMM yyyy, HH:mm:ss", LocaleController.getInstance().getCurrentLocale());
                 detailsDateFormat.setTimeZone(java.util.TimeZone.getDefault());
                 final int detailsMessageId = message.getId();
