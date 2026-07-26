@@ -62,7 +62,7 @@ jobs:
         run: |
           echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > TMessagesProj/config/release.keystore
 
-      - name: Build release APK (afat = universal, all ABIs)
+      - name: Build release APK (afat = arm64-v8a only)
         env:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
