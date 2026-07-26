@@ -1679,6 +1679,12 @@ public class DatabaseMigrationHelper {
             database.executeFast("PRAGMA user_version = 176").stepThis().dispose();
             version = 176;
         }
+        if (version == 176) {
+            database.executeFast("CREATE TABLE deleted_messages_archive(mid INTEGER, uid INTEGER, date INTEGER, deleted_date INTEGER, data BLOB, PRIMARY KEY(mid, uid));").stepThis().dispose();
+            database.executeFast("CREATE INDEX IF NOT EXISTS uid_date_idx_deleted_messages_archive ON deleted_messages_archive(uid, date);").stepThis().dispose();
+            database.executeFast("PRAGMA user_version = 177").stepThis().dispose();
+            version = 177;
+        }
 
         return version;
     }
