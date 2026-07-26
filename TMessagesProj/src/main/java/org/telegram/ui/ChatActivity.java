@@ -20380,22 +20380,6 @@ public class ChatActivity extends BaseFragment implements
         }
         ArrayList<MessageObject> messArr = (ArrayList<MessageObject>) args[2];
 
-        int deletedMergeMinId = 0;
-        int deletedMergeMaxId = 0;
-        if (mode == MODE_DEFAULT && SharedConfig.saveDeletedMessages) {
-            for (int a = 0, N = messArr.size(); a < N; a++) {
-                int mid = messArr.get(a).getId();
-                if (mid > 0) {
-                    if (deletedMergeMinId == 0 || mid < deletedMergeMinId) {
-                        deletedMergeMinId = mid;
-                    }
-                    if (mid > deletedMergeMaxId) {
-                        deletedMergeMaxId = mid;
-                    }
-                }
-            }
-        }
-
         boolean universalNotify = false;
         HashMap<Integer, MessageObject> oldMessages = null;
         if (clearOnLoad && (mode == MODE_DEFAULT || mode == MODE_SUGGESTIONS)) {
@@ -21639,47 +21623,6 @@ public class ChatActivity extends BaseFragment implements
                 }
             }
         }
-        if (deletedMergeMaxId > 0) {
-            mergeDeletedMessagesIntoView(deletedMergeMinId, deletedMergeMaxId);
-        }
-    }
-
-    private void mergeDeletedMessagesIntoView(int minId, int maxId) {
-        if (minId <= 0 || maxId <= 0 || dialog_id == 0) {
-            return;
-        }
-        if (currentUser != null && currentUser.bot && !SharedConfig.saveDeletedMessagesForBots) {
-            return;
-        }
-        getMessagesStorage().getDeletedMessages(dialog_id, minId, maxId, deletedTlMessages -> {
-            if (deletedTlMessages == null || deletedTlMessages.isEmpty() || chatAdapter == null) {
-                return;
-            }
-            boolean added = false;
-            for (int a = 0, N = deletedTlMessages.size(); a < N; a++) {
-                TLRPC.Message tlMessage = deletedTlMessages.get(a);
-                if (messagesDict[0].get(tlMessage.id) != null) {
-                    continue;
-                }
-                MessageObject messageObject = new MessageObject(currentAccount, tlMessage, false, true);
-                messageObject.isDeletedLocally = true;
-                messageObject.deletedLocallyDate = tlMessage.date;
-                int insertIndex = messages.size();
-                for (int i = 0; i < messages.size(); i++) {
-                    MessageObject existing = messages.get(i);
-                    if (existing.getId() > 0 && existing.getId() < messageObject.getId()) {
-                        insertIndex = i;
-                        break;
-                    }
-                }
-                messages.add(insertIndex, messageObject);
-                messagesDict[0].put(messageObject.getId(), messageObject);
-                added = true;
-            }
-            if (added) {
-                chatAdapter.notifyDataSetChanged(true);
-            }
-        });
     }
 
     private void didReceivedNotification2(int id, int account, final Object... args) {
@@ -30791,17 +30734,6 @@ public class ChatActivity extends BaseFragment implements
                 fillMessageMenu(primaryMessage, icons, items, options);
             }
 
-            if (message.isDeletedLocally) {
-                for (int i = options.size() - 1; i >= 0; i--) {
-                    int option = options.get(i);
-                    if (option != OPTION_MESSAGE_DETAILS && option != OPTION_COPY) {
-                        options.remove(i);
-                        items.remove(i);
-                        icons.remove(i);
-                    }
-                }
-            }
-
             if (selectedObject != null && selectedObject.isHiddenSensitive() && !selectedObject.isMediaSpoilersRevealed) {
                 for (int i = 0; i < options.size(); ++i) {
                     final int option = options.get(i);
@@ -30941,14 +30873,6 @@ public class ChatActivity extends BaseFragment implements
                 detailsSentRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsSent), R.drawable.msg_info);
                 detailsSentRow.setSubtext(detailsSentAt);
                 messageDetailsLayout.addView(detailsSentRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-                if (message.isDeletedLocally) {
-                    String detailsDeletedAt = detailsDateFormat.format(new java.util.Date((long) message.deletedLocallyDate * 1000L));
-                    ActionBarMenuSubItem detailsDeletedRow = new ActionBarMenuSubItem(getParentActivity(), false, false, themeDelegate);
-                    detailsDeletedRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsDeleted), R.drawable.msg_delete);
-                    detailsDeletedRow.setSubtext(detailsDeletedAt);
-                    messageDetailsLayout.addView(detailsDeletedRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-                }
 
                 ActionBarMenuSubItem detailsIdRow = new ActionBarMenuSubItem(getParentActivity(), false, true, themeDelegate);
                 detailsIdRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsId), R.drawable.msg_copy);
@@ -32001,7 +31925,7 @@ public class ChatActivity extends BaseFragment implements
                         sheet.show();
                     }));
                 }
-                if (isReactionsAvailable && !message.isDeletedLocally && (!tags || !getMessagesController().premiumFeaturesBlocked())) {
+                if (isReactionsAvailable && (!tags || !getMessagesController().premiumFeaturesBlocked())) {
                     int pad = 22;
                     int sPad = 24;
                     reactionsLayout.setPadding(dp(4) + (LocaleController.isRTL ? 0 : sPad), dp(4), dp(4) + (LocaleController.isRTL ? sPad : 0), dp(pad));
