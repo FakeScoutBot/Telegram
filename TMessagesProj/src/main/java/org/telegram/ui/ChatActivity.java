@@ -30884,6 +30884,12 @@ public class ChatActivity extends BaseFragment implements
             final ArrayList<Integer> options = new ArrayList<>();
             View optionsView = null;
 
+            if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
+                items.add(LocaleController.getString(R.string.MessageDetails));
+                options.add(OPTION_MESSAGE_DETAILS);
+                icons.add(R.drawable.msg_info);
+            }
+
             if (AndroidUtilities.isAccessibilityScreenReaderEnabled() && message.messageOwner != null && message.messageOwner.from_id != null && message.messageOwner.from_id.user_id != getUserConfig().clientUserId && chatMode != MODE_SAVED) {
                 items.add(LocaleController.getString(R.string.OpenProfile));
                 options.add(OPTION_OPEN_PROFILE);
@@ -45893,11 +45899,6 @@ public class ChatActivity extends BaseFragment implements
                     icons.add(R.drawable.menu_gift);
                 }
             }
-            if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
-                items.add(LocaleController.getString(R.string.MessageDetails));
-                options.add(OPTION_MESSAGE_DETAILS);
-                icons.add(R.drawable.msg_info);
-            }
             if (message.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat) && (threadMessageObjects == null || !threadMessageObjects.contains(message)) && !(message != null && message.messageOwner != null && message.messageOwner.action instanceof TLRPC.TL_messageActionTopicCreate)) {
                 items.add(LocaleController.getString(chatMode == MODE_SAVED && threadMessageId != getUserConfig().getClientUserId() ? R.string.Remove : R.string.Delete));
                 options.add(OPTION_DELETE);
@@ -46327,11 +46328,6 @@ public class ChatActivity extends BaseFragment implements
                         options.add(OPTION_CALL);
                         icons.add(R.drawable.msg_callback);
                     }
-                }
-                if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
-                    items.add(LocaleController.getString(R.string.MessageDetails));
-                    options.add(OPTION_MESSAGE_DETAILS);
-                    icons.add(R.drawable.msg_info);
                 }
                 items.add(LocaleController.getString(chatMode == MODE_SAVED && threadMessageId != getUserConfig().getClientUserId() ? R.string.Remove : R.string.Delete));
                 options.add(OPTION_DELETE);
