@@ -1593,11 +1593,6 @@
     <string name="MessageDetails">Details</string>
     <string name="MessageDetailsSent">Sent</string>
     <string name="MessageDetailsId">Message ID</string>
-    <string name="MessageDetailsDeleted">Deleted</string>
-    <string name="DeletedMessagesSettings">Deleted Messages</string>
-    <string name="SaveDeletedMessages">Save Deleted Messages</string>
-    <string name="SaveDeletedMessagesForBots">Save Deleted Messages from Bots</string>
-    <string name="SaveDeletedMessagesInfo">Deleted messages will be kept in the chat, shown grayed out with a delete icon. This does not apply to secret chats.</string>
     <string name="MessageScheduleSend">Send Now</string>
     <string name="MessageSuggestionPublishNow">Publish Now</string>
     <string name="MessageScheduleEditTime">Reschedule</string>

@@ -293,8 +293,6 @@ public class SharedConfig {
     public static boolean noSoundHintShowed = false;
     public static boolean stealthModeEnabled = false;
     public static boolean forceAllowScreenshots = false;
-    public static boolean saveDeletedMessages = true;
-    public static boolean saveDeletedMessagesForBots = false;
     public static boolean streamMedia = true;
     public static boolean streamAllVideo = false;
     public static boolean streamMkv = false;
@@ -642,8 +640,6 @@ public class SharedConfig {
             lastKeepMediaCheckTime = preferences.getInt("lastKeepMediaCheckTime", 0);
             lastLogsCheckTime = preferences.getInt("lastLogsCheckTime", 0);
             searchMessagesAsListUsed = preferences.getBoolean("searchMessagesAsListUsed", false);
-            saveDeletedMessages = preferences.getBoolean("saveDeletedMessages", true);
-            saveDeletedMessagesForBots = preferences.getBoolean("saveDeletedMessagesForBots", false);
             stickersReorderingHintUsed = preferences.getBoolean("stickersReorderingHintUsed", false);
             storyReactionsLongPressHint = preferences.getBoolean("storyReactionsLongPressHint", false);
             storiesIntroShown = preferences.getBoolean("storiesIntroShown", false);
@@ -917,22 +913,6 @@ public class SharedConfig {
         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
         SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean("searchMessagesAsListUsed", searchMessagesAsListUsed);
-        editor.apply();
-    }
-
-    public static void setSaveDeletedMessages(boolean value) {
-        saveDeletedMessages = value;
-        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putBoolean("saveDeletedMessages", saveDeletedMessages);
-        editor.apply();
-    }
-
-    public static void setSaveDeletedMessagesForBots(boolean value) {
-        saveDeletedMessagesForBots = value;
-        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putBoolean("saveDeletedMessagesForBots", saveDeletedMessagesForBots);
         editor.apply();
     }
 

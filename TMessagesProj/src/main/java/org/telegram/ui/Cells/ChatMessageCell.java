@@ -1565,8 +1565,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private int backgroundDrawableRight;
     private int backgroundDrawableTop;
     private int backgroundDrawableBottom;
-    private Drawable deletedLocallyIcon;
-    private Paint deletedLocallyBadgePaint;
     private int viaWidth;
     private int viaNameWidth;
     private boolean viaOnly;
@@ -20121,35 +20119,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     @SuppressLint("WrongCall")
     @Override
     protected void onDraw(Canvas canvas) {
-        if (currentMessageObject != null && currentMessageObject.isDeletedLocally) {
-            int deletedLocallyRestore = canvas.saveLayerAlpha(0, 0, getMeasuredWidth(), getMeasuredHeight(), 130);
-            drawInternal(canvas);
-            canvas.restoreToCount(deletedLocallyRestore);
-            drawDeletedLocallyBadge(canvas);
-        } else {
-            drawInternal(canvas);
-        }
-    }
-
-    private void drawDeletedLocallyBadge(Canvas canvas) {
-        if (backgroundDrawableRight <= 0) {
-            return;
-        }
-        if (deletedLocallyIcon == null) {
-            deletedLocallyIcon = ContextCompat.getDrawable(getContext(), R.drawable.msg_delete).mutate();
-            deletedLocallyIcon.setColorFilter(new PorterDuffColorFilter(0xffffffff, PorterDuff.Mode.SRC_IN));
-        }
-        if (deletedLocallyBadgePaint == null) {
-            deletedLocallyBadgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            deletedLocallyBadgePaint.setColor(0xb2000000);
-        }
-        int badgeRadius = dp(10);
-        int cx = backgroundDrawableLeft + backgroundDrawableRight - badgeRadius - dp(2);
-        int cy = backgroundDrawableBottom - badgeRadius - dp(2);
-        canvas.drawCircle(cx, cy, badgeRadius, deletedLocallyBadgePaint);
-        int iconSize = dp(12);
-        deletedLocallyIcon.setBounds(cx - iconSize / 2, cy - iconSize / 2, cx + iconSize / 2, cy + iconSize / 2);
-        deletedLocallyIcon.draw(canvas);
+        drawInternal(canvas);
     }
     public void drawInternal(Canvas canvas) {
         if (currentMessageObject == null) {
