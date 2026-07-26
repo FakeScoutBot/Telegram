@@ -118,7 +118,7 @@ public class MessagesStorage extends BaseController {
         }
     }
 
-    public final static int LAST_DB_VERSION = 176;
+    public final static int LAST_DB_VERSION = 177;
     private boolean databaseMigrationInProgress;
     public boolean showClearDatabaseAlert;
 
@@ -771,6 +771,9 @@ public class MessagesStorage extends BaseController {
 
         database.executeFast("CREATE TABLE ephemeral_messages (id INTEGER, dialog_id INTEGER, topic_id INTEGER, date INTEGER, data BLOB, PRIMARY KEY(dialog_id, id));").stepThis().dispose();
         database.executeFast("CREATE INDEX IF NOT EXISTS ephemeral_messages_date_idx ON ephemeral_messages(date);").stepThis().dispose();
+
+        database.executeFast("CREATE TABLE deleted_messages_archive(mid INTEGER, uid INTEGER, date INTEGER, deleted_date INTEGER, data BLOB, PRIMARY KEY(mid, uid));").stepThis().dispose();
+        database.executeFast("CREATE INDEX IF NOT EXISTS uid_date_idx_deleted_messages_archive ON deleted_messages_archive(uid, date);").stepThis().dispose();
 
         database.executeFast("PRAGMA user_version = " + MessagesStorage.LAST_DB_VERSION).stepThis().dispose();
 
@@ -13734,6 +13737,39 @@ public class MessagesStorage extends BaseController {
     }
 
 
+    public void getDeletedMessages(long dialogId, int minId, int maxId, Utilities.Callback<ArrayList<TLRPC.Message>> callback) {
+        executeInStorageQueue(() -> AndroidUtilities.runOnUIThread(() -> callback.run(getDeletedMessagesInternal(dialogId, minId, maxId))));
+    }
+
+    private ArrayList<TLRPC.Message> getDeletedMessagesInternal(long dialogId, int minId, int maxId) {
+        ArrayList<TLRPC.Message> result = new ArrayList<>();
+        SQLiteCursor cursor = null;
+        try {
+            cursor = database.queryFinalized(
+                    "SELECT data FROM deleted_messages_archive " +
+                            "WHERE uid = ? AND mid >= ? AND mid <= ? " +
+                            "ORDER BY mid ASC",
+                    dialogId,
+                    minId,
+                    maxId);
+
+            while (cursor.next()) {
+                TLRPC.Message message = cursor.tlObjectValue(0, TLRPC.Message::TLdeserialize, false);
+                if (message != null) {
+                    result.add(message);
+                }
+            }
+        } catch (Exception e) {
+            checkSQLException(e);
+        } finally {
+            if (cursor != null) {
+                cursor.dispose();
+            }
+        }
+
+        return result;
+    }
+
     public void markMessageAsSendError(TLRPC.Message message, int _mode) {
         storageQueue.postRunnable(() -> {
             try {
@@ -14594,6 +14630,7 @@ public class MessagesStorage extends BaseController {
                 ArrayList<Pair<Long, Integer>> idsToDelete = new ArrayList<>();
                 ArrayList<TopicsController.TopicUpdate> topicUpdatesInUi = null;
                 ArrayList<TLRPC.Message> deletedMessages = currentUser == dialogId || dialogId == 0 ? new ArrayList<>() : null;
+                SQLitePreparedStatement archiveState = SharedConfig.saveDeletedMessages ? database.executeFast("INSERT OR REPLACE INTO deleted_messages_archive (mid, uid, date, deleted_date, data) VALUES (?, ?, ?, ?, ?);") : null;
 
                 if (dialogId != 0) {
                     cursor = database.queryFinalized(String.format(Locale.US, "SELECT uid, data, read_state, out, mention, mid FROM messages_v2 WHERE mid IN(%s) AND uid = %d", ids, dialogId));
@@ -14612,6 +14649,25 @@ public class MessagesStorage extends BaseController {
                             messagesByDialogs.put(did, mids);
                         }
                         mids.add(mid);
+                        if (archiveState != null) {
+                            TLRPC.User archiveUser = getMessagesController().getUser(did);
+                            if (archiveUser == null || !archiveUser.bot || SharedConfig.saveDeletedMessagesForBots) {
+                                NativeByteBuffer archiveData = cursor.byteBufferValue(1);
+                                if (archiveData != null) {
+                                    TLRPC.Message archiveMessage = TLRPC.Message.TLdeserialize(archiveData, archiveData.readInt32(false), false);
+                                    archiveData.reuse();
+                                    if (archiveMessage != null) {
+                                        archiveState.requery();
+                                        archiveState.bindInteger(1, mid);
+                                        archiveState.bindLong(2, did);
+                                        archiveState.bindInteger(3, archiveMessage.date);
+                                        archiveState.bindInteger(4, getConnectionsManager().getCurrentTime());
+                                        archiveState.bindTlObject(5, archiveMessage);
+                                        archiveState.step();
+                                    }
+                                }
+                            }
+                        }
                         if (did != currentUser) {
                             int read_state = cursor.intValue(2);
                             if (cursor.intValue(3) == 0) {
@@ -14661,6 +14717,10 @@ public class MessagesStorage extends BaseController {
                 }
                 cursor.dispose();
                 cursor = null;
+                if (archiveState != null) {
+                    archiveState.dispose();
+                    archiveState = null;
+                }
 
                 ArrayList<TopicKey> topicsToDelete = null;
 

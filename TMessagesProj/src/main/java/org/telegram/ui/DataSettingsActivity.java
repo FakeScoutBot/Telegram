@@ -112,6 +112,11 @@ public class DataSettingsActivity extends BaseFragment {
     @Keep
     private int saveToGalleryGroupsRow;
     private int saveToGalleryDividerRow;
+    private int deletedMessagesSectionRow;
+    private int saveDeletedMessagesRow;
+    private int saveDeletedMessagesForBotsRow;
+    private int deletedMessagesInfoRow;
+    private int deletedMessagesSection2Row;
 
     private int rowCount;
 
@@ -173,6 +178,12 @@ public class DataSettingsActivity extends BaseFragment {
         saveToGalleryGroupsRow = rowCount++;
         saveToGalleryChannelsRow = rowCount++;
         saveToGalleryDividerRow = rowCount++;
+
+        deletedMessagesSectionRow = rowCount++;
+        saveDeletedMessagesRow = rowCount++;
+        saveDeletedMessagesForBotsRow = rowCount++;
+        deletedMessagesInfoRow = rowCount++;
+        deletedMessagesSection2Row = rowCount++;
 
 //        autoplayHeaderRow = rowCount++;
 //        autoplayGifsRow = rowCount++;
@@ -566,6 +577,14 @@ public class DataSettingsActivity extends BaseFragment {
                 SharedConfig.toggleSaveStreamMedia();
                 TextCheckCell textCheckCell = (TextCheckCell) view;
                 textCheckCell.setChecked(SharedConfig.saveStreamMedia);
+            } else if (position == saveDeletedMessagesRow) {
+                SharedConfig.setSaveDeletedMessages(!SharedConfig.saveDeletedMessages);
+                TextCheckCell textCheckCell = (TextCheckCell) view;
+                textCheckCell.setChecked(SharedConfig.saveDeletedMessages);
+            } else if (position == saveDeletedMessagesForBotsRow) {
+                SharedConfig.setSaveDeletedMessagesForBots(!SharedConfig.saveDeletedMessagesForBots);
+                TextCheckCell textCheckCell = (TextCheckCell) view;
+                textCheckCell.setChecked(SharedConfig.saveDeletedMessagesForBots);
             } else if (position == quickRepliesRow) {
                 presentFragment(new QuickRepliesSettingsActivity());
             } else if (position == autoplayGifsRow) {
@@ -745,6 +764,8 @@ public class DataSettingsActivity extends BaseFragment {
                         headerCell.setText(LocaleController.getString(R.string.AutoplayMedia));
                     } else if (position == saveToGallerySectionRow) {
                         headerCell.setText(LocaleController.getString(R.string.SaveToGallerySettings));
+                    } else if (position == deletedMessagesSectionRow) {
+                        headerCell.setText(LocaleController.getString(R.string.DeletedMessagesSettings));
                     }
                     break;
                 }
@@ -762,6 +783,10 @@ public class DataSettingsActivity extends BaseFragment {
                         checkCell.setTextAndCheck(LocaleController.getString(R.string.AutoplayGIF), SharedConfig.isAutoplayGifs(), true);
                     } else if (position == autoplayVideoRow) {
                         checkCell.setTextAndCheck(LocaleController.getString(R.string.AutoplayVideo), SharedConfig.isAutoplayVideo(), false);
+                    } else if (position == saveDeletedMessagesRow) {
+                        checkCell.setTextAndCheck(LocaleController.getString(R.string.SaveDeletedMessages), SharedConfig.saveDeletedMessages, true);
+                    } else if (position == saveDeletedMessagesForBotsRow) {
+                        checkCell.setTextAndCheck(LocaleController.getString(R.string.SaveDeletedMessagesForBots), SharedConfig.saveDeletedMessagesForBots, false);
                     }
                     break;
                 }
@@ -769,6 +794,8 @@ public class DataSettingsActivity extends BaseFragment {
                     TextInfoPrivacyCell cell = (TextInfoPrivacyCell) holder.itemView;
                     if (position == enableAllStreamInfoRow) {
                         cell.setText(LocaleController.getString(R.string.EnableAllStreamingInfo));
+                    } else if (position == deletedMessagesInfoRow) {
+                        cell.setText(LocaleController.getString(R.string.SaveDeletedMessagesInfo));
                     }
                     break;
                 }
@@ -878,6 +905,10 @@ public class DataSettingsActivity extends BaseFragment {
                     checkCell.setChecked(SharedConfig.isAutoplayGifs());
                 } else if (position == autoplayVideoRow) {
                     checkCell.setChecked(SharedConfig.isAutoplayVideo());
+                } else if (position == saveDeletedMessagesRow) {
+                    checkCell.setChecked(SharedConfig.saveDeletedMessages);
+                } else if (position == saveDeletedMessagesForBotsRow) {
+                    checkCell.setChecked(SharedConfig.saveDeletedMessagesForBots);
                 }
             }
         }
@@ -885,7 +916,8 @@ public class DataSettingsActivity extends BaseFragment {
         public boolean isRowEnabled(int position) {
             return position == mobileRow || position == roamingRow || position == wifiRow || position == storageUsageRow || position == useLessDataForCallsRow || position == dataUsageRow || position == proxyRow || position == clearDraftsRow ||
                     position == enableCacheStreamRow || position == enableStreamRow || position == enableAllStreamRow || position == enableMkvRow || position == quickRepliesRow || position == autoplayVideoRow || position == autoplayGifsRow ||
-                    position == storageNumRow || position == saveToGalleryGroupsRow || position == saveToGalleryPeerRow || position == saveToGalleryChannelsRow || position == resetDownloadRow;
+                    position == storageNumRow || position == saveToGalleryGroupsRow || position == saveToGalleryPeerRow || position == saveToGalleryChannelsRow || position == resetDownloadRow ||
+                    position == saveDeletedMessagesRow || position == saveDeletedMessagesForBotsRow;
         }
 
         @Override
@@ -926,13 +958,13 @@ public class DataSettingsActivity extends BaseFragment {
 
         @Override
         public int getItemViewType(int position) {
-            if (position == mediaDownloadSection2Row || position == usageSection2Row || position == callsSection2Row || position == proxySection2Row || position == autoplaySectionRow || position == clearDraftsSectionRow || position == saveToGalleryDividerRow) {
+            if (position == mediaDownloadSection2Row || position == usageSection2Row || position == callsSection2Row || position == proxySection2Row || position == autoplaySectionRow || position == clearDraftsSectionRow || position == saveToGalleryDividerRow || position == deletedMessagesSection2Row) {
                 return 0;
-            } else if (position == mediaDownloadSectionRow || position == streamSectionRow || position == callsSectionRow || position == usageSectionRow || position == proxySectionRow || position == autoplayHeaderRow || position == saveToGallerySectionRow) {
+            } else if (position == mediaDownloadSectionRow || position == streamSectionRow || position == callsSectionRow || position == usageSectionRow || position == proxySectionRow || position == autoplayHeaderRow || position == saveToGallerySectionRow || position == deletedMessagesSectionRow) {
                 return 2;
-            } else if (position == enableCacheStreamRow || position == enableStreamRow || position == enableAllStreamRow || position == enableMkvRow || position == autoplayGifsRow || position == autoplayVideoRow) {
+            } else if (position == enableCacheStreamRow || position == enableStreamRow || position == enableAllStreamRow || position == enableMkvRow || position == autoplayGifsRow || position == autoplayVideoRow || position == saveDeletedMessagesRow || position == saveDeletedMessagesForBotsRow) {
                 return 3;
-            } else if (position == enableAllStreamInfoRow) {
+            } else if (position == enableAllStreamInfoRow || position == deletedMessagesInfoRow) {
                 return 4;
             } else if (position == mobileRow || position == wifiRow || position == roamingRow || position == saveToGalleryGroupsRow || position == saveToGalleryPeerRow || position == saveToGalleryChannelsRow) {
                 return 5;
