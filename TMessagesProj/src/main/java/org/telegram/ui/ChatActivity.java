@@ -31069,6 +31069,45 @@ public class ChatActivity extends BaseFragment implements
 
             boolean addGap = false;
 
+            final int[] messageDetailsForegroundIndex = new int[] { -1 };
+            if (message.getId() > 0 && message.messageOwner != null && message.messageOwner.date > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty)) {
+                java.text.SimpleDateFormat detailsDateFormat = new java.text.SimpleDateFormat("dd MMMM yyyy, HH:mm:ss", LocaleController.getInstance().getCurrentLocale());
+                detailsDateFormat.setTimeZone(java.util.TimeZone.getDefault());
+                final int detailsMessageId = message.getId();
+                final String detailsSentAt = detailsDateFormat.format(new java.util.Date((long) message.messageOwner.date * 1000L));
+
+                LinearLayout messageDetailsLayout = new LinearLayout(contentView.getContext());
+                messageDetailsLayout.setOrientation(LinearLayout.VERTICAL);
+                messageDetailsLayout.setLayoutParams(new FrameLayout.LayoutParams(AndroidUtilities.dp(200), LayoutHelper.WRAP_CONTENT));
+
+                ActionBarMenuSubItem detailsBackCell = new ActionBarMenuSubItem(getParentActivity(), true, false, themeDelegate);
+                detailsBackCell.setItemHeight(44);
+                detailsBackCell.setTextAndIcon(LocaleController.getString(R.string.Back), R.drawable.msg_arrow_back);
+                detailsBackCell.getTextView().setPadding(LocaleController.isRTL ? 0 : AndroidUtilities.dp(40), 0, LocaleController.isRTL ? AndroidUtilities.dp(40) : 0, 0);
+                detailsBackCell.setOnClickListener(v1 -> popupLayout.getSwipeBack().closeForeground());
+                messageDetailsLayout.addView(detailsBackCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                ActionBarMenuSubItem detailsSentRow = new ActionBarMenuSubItem(getParentActivity(), false, false, themeDelegate);
+                detailsSentRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsSent), R.drawable.msg_info);
+                detailsSentRow.setSubtext(detailsSentAt);
+                messageDetailsLayout.addView(detailsSentRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                ActionBarMenuSubItem detailsIdRow = new ActionBarMenuSubItem(getParentActivity(), false, true, themeDelegate);
+                detailsIdRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsId), R.drawable.msg_copy);
+                detailsIdRow.setSubtext(String.valueOf(detailsMessageId));
+                detailsIdRow.setOnClickListener(v1 -> {
+                    AndroidUtilities.addToClipboard(String.valueOf(detailsMessageId));
+                    createUndoView();
+                    if (undoView != null) {
+                        undoView.showWithAction(0, UndoView.ACTION_MESSAGE_COPIED, null);
+                    }
+                });
+                messageDetailsLayout.addView(detailsIdRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+                messageDetailsForegroundIndex[0] = popupLayout.addViewToSwipeBack(messageDetailsLayout);
+            }
+
+
             if (optionsView == null) {
                 if (showWelcomeMessageRevertOption(selectedObject)) {
                     View tapAndHoldView = createMenuTextOption(getContext(), themeDelegate, getString(R.string.EphemeralWelcomeMessageMenuHint), 13);
@@ -31857,6 +31896,13 @@ public class ChatActivity extends BaseFragment implements
                         }
                         processSelectedOption(options.get(i));
                     });
+                    if (option == OPTION_MESSAGE_DETAILS && messageDetailsForegroundIndex[0] >= 0) {
+                        cell.setOnClickListener(e -> {
+                            if (popupLayout.getSwipeBack() != null) {
+                                popupLayout.getSwipeBack().openForeground(messageDetailsForegroundIndex[0]);
+                            }
+                        });
+                    }
                     if (option == OPTION_TRANSLATE) {
                         final boolean translateEnabled = getMessagesController().getTranslateController().isContextTranslateEnabled();
                         String toLangDefault = LocaleController.getInstance().getCurrentLocale().getLanguage();
@@ -33413,39 +33459,9 @@ public class ChatActivity extends BaseFragment implements
                 break;
             }
             case OPTION_MESSAGE_DETAILS: {
-                if (getParentActivity() == null || selectedObject == null || selectedObject.messageOwner == null) {
-                    break;
-                }
-                java.text.SimpleDateFormat detailsDateFormat = new java.text.SimpleDateFormat("dd MMMM yyyy, HH:mm:ss", LocaleController.getInstance().getCurrentLocale());
-                detailsDateFormat.setTimeZone(java.util.TimeZone.getDefault());
-
-                final int detailsMessageId = selectedObject.getId();
-                final String detailsSentAt = detailsDateFormat.format(new java.util.Date((long) selectedObject.messageOwner.date * 1000L));
-
-                ItemOptions detailsOptions = ItemOptions.makeOptions(ChatActivity.this, contentView);
-                detailsOptions.setViewAdditionalOffsets(0, 0, 0, 0);
-
-                ActionBarMenuSubItem sentRow = detailsOptions.add();
-                sentRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsSent), R.drawable.msg_info);
-                sentRow.setSubtext(detailsSentAt);
-                sentRow.setOnClickListener(v1 -> detailsOptions.dismiss());
-
-                ActionBarMenuSubItem idRow = detailsOptions.add();
-                idRow.setTextAndIcon(LocaleController.getString(R.string.MessageDetailsId), R.drawable.msg_copy);
-                idRow.setSubtext(String.valueOf(detailsMessageId));
-                idRow.setOnClickListener(v1 -> {
-                    AndroidUtilities.addToClipboard(String.valueOf(detailsMessageId));
-                    createUndoView();
-                    if (undoView != null) {
-                        undoView.showWithAction(0, UndoView.ACTION_MESSAGE_COPIED, null);
-                    }
-                    detailsOptions.dismiss();
-                });
-
-                detailsOptions
-                    .setGravity(Gravity.CENTER)
-                    .forceBottom(true)
-                    .show();
+                // Handled earlier via cell.setOnClickListener override — opens the
+                // swipe-back sub-view within the same popup instead of a separate
+                // floating menu. This case is unreachable but kept as a safe no-op.
                 break;
             }
             case OPTION_SAVE_TO_GALLERY: {
