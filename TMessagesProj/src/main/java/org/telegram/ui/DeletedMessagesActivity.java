@@ -246,9 +246,9 @@ public class DeletedMessagesActivity extends BaseFragment {
             }
         }
 
-        @Override
-        public boolean isEnabled(RecyclerView.ViewHolder holder) {
-            return false;
-        }
+       // @Override
+        //public boolean isEnabled(RecyclerView.ViewHolder holder) {
+           // return false;
+        //}
     }
 }
