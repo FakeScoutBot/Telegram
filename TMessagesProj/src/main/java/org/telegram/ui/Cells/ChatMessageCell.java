@@ -18517,6 +18517,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentTimeString = TextUtils.concat(formatString(R.string.MessageScheduledRepeatSeconds, period), ", ", currentTimeString);
             }
         }
+        if (currentMessageObject.messageOwner != null && currentMessageObject.messageOwner.antiDeleted) {
+            currentTimeString = TextUtils.concat("\uD83D\uDDD1 ", currentTimeString);
+        }
         timeTextWidth = timeWidth = (int) Math.ceil(Theme.chat_timePaint.measureText(currentTimeString, 0, currentTimeString == null ? 0 : currentTimeString.length()));
         if (currentMessageObject.scheduled && currentMessageObject.messageOwner.date == 0x7FFFFFFE || currentMessageObject.notime) {
             timeWidth -= dp(8);
@@ -28024,6 +28027,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     @Override
     public void setAlpha(float alpha) {
+        if (currentMessageObject != null && currentMessageObject.messageOwner != null && currentMessageObject.messageOwner.antiDeleted && alpha > 0.7f) {
+            alpha = 0.7f;
+        }
         if ((alpha == 1f) != (getAlpha() == 1)) {
             invalidate();
         }
