@@ -136,6 +136,7 @@ import com.google.zxing.common.detector.MathUtils;
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.AntiDeleteController;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BotForumHelper;
 import org.telegram.messenger.BotInlineKeyboard;
@@ -1239,6 +1240,7 @@ public class ChatActivity extends BaseFragment implements
 
     public final static int OPTION_VIEW_STATISTICS = 115;
     public final static int OPTION_MESSAGE_DETAILS = 116;
+    public final static int OPTION_ANTI_DELETE_HISTORY = 117;
 
     private final static int[] allowedNotificationsDuringChatListAnimations = new int[]{
             NotificationCenter.messagesRead,
@@ -30677,6 +30679,12 @@ public class ChatActivity extends BaseFragment implements
                 icons.add(R.drawable.msg_info);
             }
 
+            if (AntiDeleteController.getInstance(currentAccount).shouldSaveDeletedMessage(dialog_id) && message.getId() > 0 && dialog_id != 0) {
+                items.add("Deleted Messages");
+                options.add(OPTION_ANTI_DELETE_HISTORY);
+                icons.add(R.drawable.msg_log);
+            }
+
             if (AndroidUtilities.isAccessibilityScreenReaderEnabled() && message.messageOwner != null && message.messageOwner.from_id != null && message.messageOwner.from_id.user_id != getUserConfig().clientUserId && chatMode != MODE_SAVED) {
                 items.add(LocaleController.getString(R.string.OpenProfile));
                 options.add(OPTION_OPEN_PROFILE);
@@ -33216,6 +33224,10 @@ public class ChatActivity extends BaseFragment implements
                 // Handled earlier via cell.setOnClickListener override — opens the
                 // swipe-back sub-view within the same popup instead of a separate
                 // floating menu. This case is unreachable but kept as a safe no-op.
+                break;
+            }
+            case OPTION_ANTI_DELETE_HISTORY: {
+                presentFragment(new DeletedMessagesActivity(dialog_id));
                 break;
             }
             case OPTION_SAVE_TO_GALLERY: {
