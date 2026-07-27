@@ -58209,6 +58209,7 @@ public class TLRPC {
         public String translatedSummaryLanguage; //custom
         public TL_textWithEntities translatedSummaryText; //custom
         public long ephemeralReceiverBotId; //custom
+        public boolean antiDeleted; //custom, set on messages reconstructed from AntiDeleteController's local archive so they render inline in history
 
         private static Message fromConstructor(int constructor) {
             switch (constructor) {
