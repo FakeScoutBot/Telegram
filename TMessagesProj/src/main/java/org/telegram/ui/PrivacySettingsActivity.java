@@ -46,6 +46,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
+import org.telegram.messenger.AntiDeleteConfig;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
@@ -163,6 +164,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
     private int stealthModeSectionRow;
     private int stealthModeRow;
     private int screenshotsRow;
+    private int antiDeleteRow;
     private int stealthModeDetailRow;
     private int rowCount;
 
@@ -520,6 +522,11 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 if (view instanceof TextCheckCell) {
                     ((TextCheckCell) view).setChecked(SharedConfig.forceAllowScreenshots);
                 }
+            } else if (position == antiDeleteRow) {
+                AntiDeleteConfig.setSaveDeletedMessages(!AntiDeleteConfig.saveDeletedMessages);
+                if (view instanceof TextCheckCell) {
+                    ((TextCheckCell) view).setChecked(AntiDeleteConfig.saveDeletedMessages);
+                }
             } else if (position == contactsDeleteRow) {
                 if (getParentActivity() == null) {
                     return;
@@ -720,6 +727,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
     }
 
     public void updateRows(boolean notify) {
+        AntiDeleteConfig.load();
         passkeysRow = -1;
         rowCount = 0;
 
@@ -812,6 +820,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         stealthModeSectionRow = rowCount++;
         stealthModeRow = rowCount++;
         screenshotsRow = rowCount++;
+        antiDeleteRow = rowCount++;
         stealthModeDetailRow = rowCount++;
         if (listAdapter != null && notify) {
             listAdapter.notifyDataSetChanged();
@@ -1038,7 +1047,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == passcodeRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow || position == stealthModeRow || position == screenshotsRow ||
+            return position == passcodeRow || position == passwordRow || position == passkeysRow || position == blockedRow || position == sessionsRow || position == secretWebpageRow || position == webSessionsRow || position == stealthModeRow || position == screenshotsRow || position == antiDeleteRow ||
                     position == groupsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_INVITE) ||
                     position == lastSeenRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_LASTSEEN) ||
                     position == callsRow && !getContactsController().getLoadingPrivacyInfo(ContactsController.PRIVACY_RULES_TYPE_CALLS) ||
@@ -1309,7 +1318,9 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                     } else if (position == stealthModeRow) {
                         textCheckCell.setTextAndCheck("Stealth Mode", SharedConfig.stealthModeEnabled, true);
                     } else if (position == screenshotsRow) {
-                        textCheckCell.setTextAndCheck("Force Allow Screenshots", SharedConfig.forceAllowScreenshots, false);
+                        textCheckCell.setTextAndCheck("Force Allow Screenshots", SharedConfig.forceAllowScreenshots, true);
+                    } else if (position == antiDeleteRow) {
+                        textCheckCell.setTextAndCheck("Save Deleted Messages", AntiDeleteConfig.saveDeletedMessages, false);
                     }
                     break;
                 case 5:
@@ -1423,7 +1434,7 @@ public class PrivacySettingsActivity extends BaseFragment implements Notificatio
                 return 1;
             } else if (position == securitySectionRow || position == advancedSectionRow || position == privacySectionRow || position == secretSectionRow || position == stealthModeSectionRow || position == botsSectionRow || position == contactsSectionRow || position == newChatsHeaderRow) {
                 return 2;
-            } else if (position == secretWebpageRow || position == contactsSyncRow || position == contactsSuggestRow || position == newChatsRow || position == stealthModeRow || position == screenshotsRow) {
+            } else if (position == secretWebpageRow || position == contactsSyncRow || position == contactsSuggestRow || position == newChatsRow || position == stealthModeRow || position == screenshotsRow || position == antiDeleteRow) {
                 return 3;
             } else if (position == botsAndWebsitesShadowRow) {
                 return 4;
