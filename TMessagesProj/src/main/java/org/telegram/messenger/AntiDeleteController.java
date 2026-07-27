@@ -82,19 +82,31 @@ public class AntiDeleteController extends BaseController {
     }
 
     /**
-     * Checks (and consumes) whether this message's deletion was permitted by the
-     * local user. One-shot on purpose -- it only needs to bridge a single action.
+     * Checks whether this message's deletion was permitted by the local user.
+     * Non-destructive -- more than one call site needs to observe the same
+     * entry (MessagesStorage's archive-on-delete check, and ChatActivity's
+     * live in-place update), so nobody consumes it just by looking. Call
+     * clearDeletePermits once the deletion this bridges is actually done with.
      */
-    private boolean isDeleteMessagePermitted(long dialogId, int messageId) {
+    public boolean isDeleteMessagePermitted(long dialogId, int messageId) {
         HashSet<Integer> set = messageDeletePermitted.get(dialogId);
-        if (set == null) {
-            return false;
+        return set != null && set.contains(messageId);
+    }
+
+    /**
+     * Releases permit entries once every call site that needed to see them has.
+     * Call this once, from wherever the local delete request this bridges
+     * actually finishes (deleteMessages), not from either of the peek sites.
+     */
+    public void clearDeletePermits(long dialogId, ArrayList<Integer> messageIds) {
+        HashSet<Integer> set = messageDeletePermitted.get(dialogId);
+        if (set == null || messageIds == null) {
+            return;
         }
-        boolean result = set.remove(messageId);
+        set.removeAll(messageIds);
         if (set.isEmpty()) {
             messageDeletePermitted.remove(dialogId);
         }
-        return result;
     }
 
     // ----------------- gating -----------------
@@ -113,6 +125,34 @@ public class AntiDeleteController extends BaseController {
         return true;
     }
 
+    /**
+     * Whether this dialog has any locally-archived deleted messages -- used to
+     * exempt it from the "no real messages left, drop it from the dialog list"
+     * cleanup even though the underlying real history is empty (e.g. right
+     * after clearing it).
+     */
+    public void hasDeletedMessages(long dialogId, Utilities.Callback<Boolean> callback) {
+        getQueue().postRunnable(() -> {
+            ensureOpen();
+            boolean exists = false;
+            if (database != null) {
+                SQLiteCursor cursor = null;
+                try {
+                    cursor = database.queryFinalized("SELECT 1 FROM deleted_messages WHERE uid = ? LIMIT 1", dialogId);
+                    exists = cursor.next();
+                } catch (Exception e) {
+                    FileLog.e(e);
+                } finally {
+                    if (cursor != null) {
+                        cursor.dispose();
+                    }
+                }
+            }
+            boolean result = exists;
+            AndroidUtilities.runOnUIThread(() -> callback.run(result));
+        });
+    }
+
     // ----------------- inline history merge -----------------
 
     /**
@@ -128,8 +168,8 @@ public class AntiDeleteController extends BaseController {
      * already calls on this same thread) -- safe since processLoadedMessages
      * never runs on the UI thread.
      */
-    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects) {
-        if (objects.isEmpty() || !shouldSaveDeletedMessage(dialogId)) {
+    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects, int max_id, int load_type) {
+        if (!shouldSaveDeletedMessage(dialogId)) {
             return;
         }
         int minId = Integer.MAX_VALUE;
@@ -148,13 +188,25 @@ public class AntiDeleteController extends BaseController {
             }
         }
         if (minId > maxId) {
-            return;
+            // Nothing real came back in this page (e.g. the only message here was
+            // deleted and nothing's been sent since) -- fall back to the boundary
+            // this page's load actually requested instead of giving up, or the
+            // archive lookup for an otherwise-empty page would never happen.
+            if (load_type == 3) {
+                // "load newer than max_id"
+                minId = max_id != 0 ? max_id + 1 : 1;
+                maxId = Integer.MAX_VALUE;
+            } else {
+                // load_type 0/1/2/4: initial load or "load older than max_id"
+                minId = 1;
+                maxId = (load_type == 2 || load_type == 4) && max_id != 0 ? max_id - 1 : Integer.MAX_VALUE;
+            }
         }
         ArrayList<MessageObject> deletedMessages = getDeletedMessagesInRangeSync(dialogId, minId, maxId, existingIds);
         if (deletedMessages.isEmpty()) {
             return;
         }
-        boolean descending = objects.get(0).getId() >= objects.get(objects.size() - 1).getId();
+        boolean descending = !objects.isEmpty() ? objects.get(0).getId() >= objects.get(objects.size() - 1).getId() : load_type != 3;
         for (int a = 0, N = deletedMessages.size(); a < N; a++) {
             MessageObject deletedMessageObject = deletedMessages.get(a);
             int insertId = deletedMessageObject.getId();
