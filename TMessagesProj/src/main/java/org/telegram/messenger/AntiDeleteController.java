@@ -1,6 +1,7 @@
 package org.telegram.messenger;
 
 import android.text.TextUtils;
+import android.util.SparseArray;
 
 import androidx.collection.LongSparseArray;
 
@@ -156,25 +157,40 @@ public class AntiDeleteController extends BaseController {
     // ----------------- inline history merge -----------------
 
     /**
-     * Called from MessagesController.processLoadedMessages right after a loaded
-     * history page has been converted to MessageObjects, before that page is
-     * handed off (via runOnUIThread) to ChatActivity. Fills any gaps in this
-     * page with locally-archived deleted messages so they render inline at
-     * their original spot instead of only being visible in the separate
-     * "Deleted Messages" viewer.
+     * Fills any gaps in the live history with locally-archived deleted messages
+     * so they render inline at their original spot instead of only being
+     * visible in the separate "Deleted Messages" viewer.
      *
-     * Runs synchronously on the caller's thread, same as MessagesStorage's
-     * *Sync methods (e.g. getChannelPtsSync, which processLoadedMessages
-     * already calls on this same thread) -- safe since processLoadedMessages
-     * never runs on the UI thread.
+     * Called from ChatActivity (didReceivedNotification_messagesDidLoad), not
+     * MessagesController -- it needs liveMessages (ChatActivity's messagesDict)
+     * to dedup against every page loaded this session, not just the one that
+     * just arrived, mirroring AyuGram's AyuHistoryHook (which does the same
+     * against chatActivity.messagesDict rather than a single page's array).
+     *
+     * Runs on the UI thread as a result (ChatActivity's notification handler
+     * is UI-thread), so the blocking DB reads below (getMinAndMaxArchivedSync,
+     * getDeletedMessagesInRangeSync) briefly block it. Both are single indexed
+     * lookups against deleted_messages' (uid, mid) primary key, so this should
+     * stay well under jank-visible latency for a personal-scale archive -- but
+     * it's a real trade-off, not a free lunch, and worth knowing about if this
+     * ever needs to run against a much larger archive.
      */
-    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects, int max_id, int load_type, int count) {
+    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects, int load_type, SparseArray<MessageObject>[] liveMessages) {
         if (!shouldSaveDeletedMessage(dialogId)) {
             return;
         }
         int minId = Integer.MAX_VALUE;
         int maxId = Integer.MIN_VALUE;
         HashSet<Integer> existingIds = new HashSet<>();
+        if (liveMessages != null) {
+            for (SparseArray<MessageObject> dict : liveMessages) {
+                if (dict != null) {
+                    for (int a = 0, N = dict.size(); a < N; a++) {
+                        existingIds.add(dict.keyAt(a));
+                    }
+                }
+            }
+        }
         for (int a = 0, N = objects.size(); a < N; a++) {
             int id = objects.get(a).getId();
             existingIds.add(id);
@@ -189,29 +205,27 @@ public class AntiDeleteController extends BaseController {
         }
         if (minId > maxId) {
             // Nothing real came back in this page (e.g. the only message here was
-            // deleted and nothing's been sent since) -- fall back to the boundary
-            // this page's load actually requested instead of giving up. Bounded by
-            // this page's own requested size wherever we have a real anchor (max_id)
-            // to bound it from -- otherwise a gap deep in history pulls in every
-            // deleted message below/above it, well beyond this page's actual span.
-            // Only the true "nothing to anchor on" case (max_id == 0, i.e. loading
-            // from the very top/bottom of the dialog) scans unbounded.
-            int window = Math.max(count, 1) * 2;
-            if (load_type == 3) {
-                // "load newer than max_id"
-                minId = max_id != 0 ? max_id + 1 : 1;
-                maxId = max_id != 0 ? minId + window : Integer.MAX_VALUE;
-            } else {
-                // load_type 0/1/2/4: initial load or "load older than max_id"
-                maxId = (load_type == 2 || load_type == 4) && max_id != 0 ? max_id - 1 : Integer.MAX_VALUE;
-                minId = maxId != Integer.MAX_VALUE ? Math.max(1, maxId - window) : 1;
+            // deleted and nothing's been sent since) -- anchor on the true bounds of
+            // what's actually archived for this dialog (not a guessed window), capped
+            // at Telegram's own authoritative "latest message" pointer (dialog.top_message,
+            // which stays correct even after that very message gets deleted), instead of
+            // extrapolating a window that can overlap what an adjacent page already covers.
+            int[] archiveBounds = getMinAndMaxArchivedSync(dialogId);
+            if (archiveBounds == null) {
+                return;
+            }
+            minId = archiveBounds[0];
+            maxId = archiveBounds[1];
+            TLRPC.Dialog dialog = getMessagesController().getDialog(dialogId);
+            if (dialog != null && dialog.top_message > 0 && dialog.top_message < maxId) {
+                maxId = dialog.top_message;
             }
         }
         ArrayList<MessageObject> deletedMessages = getDeletedMessagesInRangeSync(dialogId, minId, maxId, existingIds);
         if (deletedMessages.isEmpty()) {
             return;
         }
-        boolean descending = !objects.isEmpty() ? objects.get(0).getId() >= objects.get(objects.size() - 1).getId() : load_type != 3;
+        boolean descending = !objects.isEmpty() ? objects.get(0).getId() >= objects.get(objects.size() - 1).getId() : load_type != MessagesController.LOAD_FORWARD;
         for (int a = 0, N = deletedMessages.size(); a < N; a++) {
             MessageObject deletedMessageObject = deletedMessages.get(a);
             int insertId = deletedMessageObject.getId();
@@ -225,6 +239,46 @@ public class AntiDeleteController extends BaseController {
             }
             objects.add(index, deletedMessageObject);
         }
+    }
+
+    /**
+     * True min/max mid of everything archived for this dialog (not a guessed
+     * window) -- mirrors AyuGram's AyuLocalDatabaseUtils.getMinAndMaxForDialog.
+     * Returns null if nothing is archived for this dialog at all. Blocking read,
+     * same threading note as getDeletedMessagesInRangeSync below.
+     */
+    private int[] getMinAndMaxArchivedSync(long dialogId) {
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        int[] holder = new int[]{0, 0};
+        getQueue().postRunnable(() -> {
+            ensureOpen();
+            if (database != null) {
+                SQLiteCursor cursor = null;
+                try {
+                    cursor = database.queryFinalized("SELECT MIN(mid), MAX(mid) FROM deleted_messages WHERE uid = ?", dialogId);
+                    if (cursor.next()) {
+                        holder[0] = cursor.intValue(0);
+                        holder[1] = cursor.intValue(1);
+                    }
+                } catch (Exception e) {
+                    FileLog.e(e);
+                } finally {
+                    if (cursor != null) {
+                        cursor.dispose();
+                    }
+                }
+            }
+            countDownLatch.countDown();
+        });
+        try {
+            countDownLatch.await();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        // SELECT MIN/MAX with no matching rows still returns one row of NULLs,
+        // which this SQLite wrapper reads back as 0 -- mids are always positive,
+        // so holder[0] > 0 is a safe "found nothing" check either way.
+        return holder[0] > 0 ? holder : null;
     }
 
     /**
