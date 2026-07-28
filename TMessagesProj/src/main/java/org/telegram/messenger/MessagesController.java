@@ -12253,10 +12253,6 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
 
-        if (mode == 0 && !DialogObject.isEncryptedDialog(dialogId)) {
-            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects);
-        }
-
         Timer.done(t1);
         Timer.Task t2 = Timer.start(loaderLogger, "processLoadedMessages: runOnUIThread");
         AndroidUtilities.runOnUIThread(() -> {
