@@ -26166,14 +26166,6 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
-                boolean antiDeleteKeepInline = loadIndex == 0 && !obj.scheduled && AntiDeleteController.getInstance(currentAccount).shouldSaveDeletedMessage(dialog_id);
-                if (antiDeleteKeepInline) {
-                    obj.messageOwner.antiDeleted = true;
-                    if (editingMessageObject == obj) {
-                        hideFieldPanel(true);
-                    }
-                    updated = true;
-                } else {
                 obj.deleted = true;
                 if (obj.scheduled && sent) {
                     obj.scheduledSent = true;
@@ -26290,7 +26282,6 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                     updated = true;
-                }
                 }
             }
         }
