@@ -9373,8 +9373,6 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 getMessagesStorage().markMessagesAsDeleted(dialogId, messages, true, forAll, 0, topicId);
                 getMessagesStorage().updateDialogsWithDeletedMessages(dialogId, channelId, messages, null);
-                final ArrayList<Integer> permittedMessages = new ArrayList<>(messages);
-                getMessagesStorage().getStorageQueue().postRunnable(() -> AntiDeleteController.getInstance(currentAccount).clearDeletePermits(dialogId, permittedMessages));
             }
             getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, messages, channelId, scheduled, false, movedToScheduled, movedToScheduledMessageId);
         } else {
@@ -12197,7 +12195,7 @@ public class MessagesController extends BaseController implements NotificationCe
         }
 
         if (mode == 0 && !DialogObject.isEncryptedDialog(dialogId)) {
-            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects, max_id, load_type);
+            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects);
         }
 
         Timer.done(t1);
@@ -14047,21 +14045,13 @@ public class MessagesController extends BaseController implements NotificationCe
                                 if (BuildVars.LOGS_ENABLED) {
                                     FileLog.d("checkLastDialogMessage for " + dialog.id + " current dialog not found");
                                 }
-                                getMessagesStorage().isDialogHasTopMessage(dialog.id, () -> AntiDeleteController.getInstance(currentAccount).hasDeletedMessages(dialog.id, hasArchived -> {
-                                    if (!hasArchived) {
-                                        deleteDialog(dialog.id, 3);
-                                    }
-                                }));
+                                getMessagesStorage().isDialogHasTopMessage(dialog.id, () -> deleteDialog(dialog.id, 3));
                             } else {
                                 if (BuildVars.LOGS_ENABLED) {
                                     FileLog.d("checkLastDialogMessage for " + dialog.id + " current dialog top message " + currentDialog.top_message);
                                 }
                                 if (currentDialog.top_message == 0) {
-                                    AntiDeleteController.getInstance(currentAccount).hasDeletedMessages(dialog.id, hasArchived -> {
-                                        if (!hasArchived) {
-                                            deleteDialog(dialog.id, 3);
-                                        }
-                                    });
+                                    deleteDialog(dialog.id, 3);
                                 }
                             }
                         }
