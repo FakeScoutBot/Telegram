@@ -14612,7 +14612,6 @@ public class MessagesStorage extends BaseController {
                             messagesByDialogs.put(did, mids);
                         }
                         mids.add(mid);
-                        AntiDeleteController.getInstance(currentAccount).saveDeletedMessage(did, mid, cursor.byteBufferValue(1));
                         if (did != currentUser) {
                             int read_state = cursor.intValue(2);
                             if (cursor.intValue(3) == 0) {

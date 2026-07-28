@@ -9323,9 +9323,6 @@ public class MessagesController extends BaseController implements NotificationCe
         if ((messages == null || messages.isEmpty()) && taskId == 0) {
             return;
         }
-        if (messages != null && !messages.isEmpty()) {
-            AntiDeleteController.getInstance(currentAccount).permitDeleteMessages(dialogId, messages);
-        }
         ArrayList<Integer> toSend = null;
         long channelId;
         if (taskId == 0) {
