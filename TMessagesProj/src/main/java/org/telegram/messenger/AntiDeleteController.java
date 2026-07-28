@@ -156,52 +156,51 @@ public class AntiDeleteController extends BaseController {
      * other read of `data` in that loop.
      */
     public void saveDeletedMessage(long dialogId, int messageId, NativeByteBuffer data) {
-    if (data == null) {
-        return;
-    }
-    if (!shouldSaveDeletedMessage(dialogId) || isDeleteMessagePermitted(dialogId, messageId)) {
-        data.reuse();
-        return;
-    }
-    // data is backed by the caller's cursor row and won't survive past this call
-    // (MessagesStorage disposes that cursor right after this loop), so copy it now,
-    // synchronously, before handing the actual DB write off to our own queue.
-    NativeByteBuffer tempCopy = null;
-    try {
-        tempCopy = new NativeByteBuffer(data.limit());
-        tempCopy.writeBytes(data);
-        tempCopy.position(0);
-    } catch (Exception e) {
-        FileLog.e(e);
-    } finally {
-        data.reuse();
-    }
-    if (tempCopy == null) {
-        return;
-    }
-    final NativeByteBuffer copy = tempCopy;
-    int date = getConnectionsManager().getCurrentTime();
-    getQueue().postRunnable(() -> {
-        ensureOpen();
-        if (database == null) {
-            copy.reuse();
+        if (data == null) {
             return;
         }
+        if (!shouldSaveDeletedMessage(dialogId) || isDeleteMessagePermitted(dialogId, messageId)) {
+            data.reuse();
+            return;
+        }
+        // data is backed by the caller's cursor row and won't survive past this call
+        // (MessagesStorage disposes that cursor right after this loop), so copy it now,
+        // synchronously, before handing the actual DB write off to our own queue.
+        NativeByteBuffer copy = null;
         try {
-            SQLitePreparedStatement state = database.executeFast("INSERT OR IGNORE INTO deleted_messages VALUES(?, ?, ?, ?)");
-            state.bindLong(1, dialogId);
-            state.bindInteger(2, messageId);
-            state.bindInteger(3, date);
-            state.bindByteBuffer(4, copy);
-            state.step();
-            state.dispose();
+            copy = new NativeByteBuffer(data.limit());
+            copy.writeBytes(data);
+            copy.position(0);
         } catch (Exception e) {
             FileLog.e(e);
         } finally {
-            copy.reuse();
+            data.reuse();
         }
-    });
-}
+        if (copy == null) {
+            return;
+        }
+        int date = getConnectionsManager().getCurrentTime();
+        getQueue().postRunnable(() -> {
+            ensureOpen();
+            if (database == null) {
+                copy.reuse();
+                return;
+            }
+            try {
+                SQLitePreparedStatement state = database.executeFast("INSERT OR IGNORE INTO deleted_messages VALUES(?, ?, ?, ?)");
+                state.bindLong(1, dialogId);
+                state.bindInteger(2, messageId);
+                state.bindInteger(3, date);
+                state.bindByteBuffer(4, copy);
+                state.step();
+                state.dispose();
+            } catch (Exception e) {
+                FileLog.e(e);
+            } finally {
+                copy.reuse();
+            }
+        });
+    }
 
     /**
      * Phase 2/3 will build a log screen on top of this; left here since the
