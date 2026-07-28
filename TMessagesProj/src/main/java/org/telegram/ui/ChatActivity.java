@@ -26176,6 +26176,7 @@ public class ChatActivity extends BaseFragment implements
                 boolean antiDeleteKeepInline = loadIndex == 0 && !obj.scheduled && !AntiDeleteController.getInstance(currentAccount).isDeleteMessagePermitted(dialog_id, obj.getId()) && AntiDeleteController.getInstance(currentAccount).shouldSaveDeletedMessage(dialog_id);
                 if (antiDeleteKeepInline) {
                     obj.messageOwner.antiDeleted = true;
+                    obj.forceUpdate = true;
                     if (editingMessageObject == obj) {
                         hideFieldPanel(true);
                     }
