@@ -168,7 +168,7 @@ public class AntiDeleteController extends BaseController {
      * already calls on this same thread) -- safe since processLoadedMessages
      * never runs on the UI thread.
      */
-    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects, int max_id, int load_type, int count) {
+    public void mergeDeletedMessagesIntoHistory(long dialogId, ArrayList<MessageObject> objects, int max_id, int load_type) {
         if (!shouldSaveDeletedMessage(dialogId)) {
             return;
         }
@@ -190,21 +190,16 @@ public class AntiDeleteController extends BaseController {
         if (minId > maxId) {
             // Nothing real came back in this page (e.g. the only message here was
             // deleted and nothing's been sent since) -- fall back to the boundary
-            // this page's load actually requested instead of giving up. Bounded by
-            // this page's own requested size wherever we have a real anchor (max_id)
-            // to bound it from -- otherwise a gap deep in history pulls in every
-            // deleted message below/above it, well beyond this page's actual span.
-            // Only the true "nothing to anchor on" case (max_id == 0, i.e. loading
-            // from the very top/bottom of the dialog) scans unbounded.
-            int window = Math.max(count, 1) * 2;
+            // this page's load actually requested instead of giving up, or the
+            // archive lookup for an otherwise-empty page would never happen.
             if (load_type == 3) {
                 // "load newer than max_id"
                 minId = max_id != 0 ? max_id + 1 : 1;
-                maxId = max_id != 0 ? minId + window : Integer.MAX_VALUE;
+                maxId = Integer.MAX_VALUE;
             } else {
                 // load_type 0/1/2/4: initial load or "load older than max_id"
+                minId = 1;
                 maxId = (load_type == 2 || load_type == 4) && max_id != 0 ? max_id - 1 : Integer.MAX_VALUE;
-                minId = maxId != Integer.MAX_VALUE ? Math.max(1, maxId - window) : 1;
             }
         }
         ArrayList<MessageObject> deletedMessages = getDeletedMessagesInRangeSync(dialogId, minId, maxId, existingIds);

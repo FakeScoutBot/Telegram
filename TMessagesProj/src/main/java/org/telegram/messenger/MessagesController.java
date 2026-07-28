@@ -12197,7 +12197,7 @@ public class MessagesController extends BaseController implements NotificationCe
         }
 
         if (mode == 0 && !DialogObject.isEncryptedDialog(dialogId)) {
-            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects, max_id, load_type, count);
+            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects, max_id, load_type);
         }
 
         Timer.done(t1);
