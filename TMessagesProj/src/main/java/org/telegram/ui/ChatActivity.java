@@ -20582,6 +20582,13 @@ public class ChatActivity extends BaseFragment implements
             toggleIsAllChats();
         }
 
+        // After clearOnLoad resolves, not before -- messagesDict needs to reflect
+        // its true current state (freshly cleared, or the accumulated session so
+        // far) at merge time, not a stale pre-clear snapshot.
+        if (mode == MODE_DEFAULT && !DialogObject.isEncryptedDialog(dialog_id)) {
+            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialog_id, messArr, (Integer) args[8], messagesDict);
+        }
+
         if (index == -1) {
             if (chatMode == MODE_SCHEDULED && mode == MODE_SCHEDULED && !isCache) {
                 waitingForReplyMessageLoad = true;

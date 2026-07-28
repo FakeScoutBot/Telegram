@@ -12255,9 +12255,10 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
 
-        if (mode == 0 && !DialogObject.isEncryptedDialog(dialogId)) {
-            AntiDeleteController.getInstance(currentAccount).mergeDeletedMessagesIntoHistory(dialogId, objects, max_id, load_type, count);
-        }
+        // Anti-delete history merge point moved to ChatActivity's messagesDidLoad
+        // handler -- see AntiDeleteController.mergeDeletedMessagesIntoHistory's
+        // javadoc for why (needs the live session's full messagesDict, not just
+        // this one page).
 
         Timer.done(t1);
         Timer.Task t2 = Timer.start(loaderLogger, "processLoadedMessages: runOnUIThread");
