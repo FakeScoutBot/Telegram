@@ -45,7 +45,7 @@ public class DeletedMessageService {
             try {
                 DeletedMessageDao dao = AntiDeleteDatabase.getInstance(currentAccount).deletedMessageDao();
                 long userId = UserConfig.getInstance(currentAccount).getClientUserId();
-                if (dao.exists(userId, req.dialogId, req.messageId)) {
+                if (dao.exists(userId, req.dialogId, req.topicId, req.messageId)) {
                     return; // idempotency guard -- e.g. a re-delivered delete update
                 }
                 saveDeletedMessage(req, dao, userId);
