@@ -1812,11 +1812,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     public final TransitionParams transitionParams = new TransitionParams();
     private boolean edited;
-    // === anti-delete module hook: runtime UI state mirroring
-    // messageObject.messageOwner.antiDeleted, plus the fade animator used when
-    // a message is deleted while its cell is already on screen. ===
-    public boolean antiDeleted;
-    public AnimatorSet antiDeletedAnimation;
     private boolean imageDrawn;
     private boolean photoImageOutOfBounds;
 
@@ -18374,12 +18369,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             author = MessagesController.getInstance(currentAccount).getUser(fromId);
         }
         boolean hasReplies = messageObject.hasReplies();
-        // === anti-delete module hook: mirror the same exclusion rules already
-        // applied to `edited` just below (scheduled messages, edit_hide) so a
-        // ghost bubble never shows the deleted icon in a context where it
-        // wouldn't make sense either. ===
-        this.antiDeleted = !messageObject.scheduled && !messageObject.messageOwner.edit_hide
-            && messageObject.messageOwner.antiDeleted;
         if (messageObject.scheduled || messageObject.messageOwner.edit_hide) {
             edited = false;
         } else if (currentPosition == null || currentMessagesGroup == null || currentMessagesGroup.messages.isEmpty()) {
@@ -18459,15 +18448,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentTimeString = TextUtils.concat(getString(R.string.MessageScheduledRepeatDaily), ", ", currentTimeString);
             } else {
                 currentTimeString = TextUtils.concat(formatString(R.string.MessageScheduledRepeatSeconds, period), ", ", currentTimeString);
-            }
-        }
-        // === anti-delete module hook: prepend the deleted-icon glyph to the
-        // timestamp, same insertion point/pattern as the edited-pencil prefix
-        // elsewhere in this method. ===
-        if (this.antiDeleted && org.telegram.messenger.antidelete.AntiDeleteConfig.getInstance(currentAccount).deletedIcon != org.telegram.messenger.antidelete.AntiDeleteConfig.ICON_NONE) {
-            CharSequence deletedIcon = org.telegram.messenger.antidelete.AntiDeleteUI.getDeletedIcon(currentAccount);
-            if (deletedIcon.length() > 0) {
-                currentTimeString = new SpannableStringBuilder().append(deletedIcon).append(" ").append(currentTimeString);
             }
         }
         timeTextWidth = timeWidth = (int) Math.ceil(Theme.chat_timePaint.measureText(currentTimeString, 0, currentTimeString == null ? 0 : currentTimeString.length()));
@@ -27757,14 +27737,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     @Override
     public void setAlpha(float alpha) {
-        // === anti-delete module hook: clamp a ghost bubble's alpha to a fixed
-        // translucency instead of letting it render fully opaque, unless a
-        // live fade animation (antiDeletedAnimation, see
-        // startDeletedAlphaAnimation below) is already driving alpha itself. ===
-        if (org.telegram.messenger.antidelete.AntiDeleteConfig.getInstance(currentAccount).semiTransparentDeletedMessages
-                && !ignoreDeletedAlpha && antiDeleted && antiDeletedAnimation == null && alpha > 0.75f) {
-            alpha = 0.7f;
-        }
         if ((alpha == 1f) != (getAlpha() == 1)) {
             invalidate();
         }
@@ -27778,36 +27750,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 (currentPosition == null || ((currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) != 0 && (currentPosition.flags & MessageObject.POSITION_FLAG_LEFT) != 0)) && !reactionsLayoutInBubble.isSmall) { // Reactions
             invalidate();
         }
-    }
-
-    /**
-     * Set true only while intentionally bypassing the translucency clamp above
-     * (e.g. a selection-highlight or transition animation that needs the cell
-     * fully opaque for a moment). Not touched by anything else in this hook.
-     */
-    public boolean ignoreDeletedAlpha;
-
-    /**
-     * Call this instead of a plain notifyItemChanged/setAlpha when a message
-     * currently on screen gets deleted while the chat is open, so it fades to
-     * translucent smoothly instead of snapping.
-     */
-    public void startDeletedAlphaAnimation(float target) {
-        if (antiDeletedAnimation != null) {
-            antiDeletedAnimation.cancel();
-        }
-        ObjectAnimator animator = ObjectAnimator.ofFloat(this, View.ALPHA, getAlpha(), target);
-        antiDeletedAnimation = new AnimatorSet();
-        antiDeletedAnimation.playTogether(animator);
-        antiDeletedAnimation.setDuration(250);
-        antiDeletedAnimation.setInterpolator(CubicBezierInterpolator.EASE_OUT);
-        antiDeletedAnimation.addListener(new android.animation.AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(android.animation.Animator animation) {
-                antiDeletedAnimation = null;
-            }
-        });
-        antiDeletedAnimation.start();
     }
 
     public int getCurrentBackgroundLeft() {

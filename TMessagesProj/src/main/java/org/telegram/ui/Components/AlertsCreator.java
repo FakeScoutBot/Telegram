@@ -8162,21 +8162,6 @@ public class AlertsCreator {
                     thisDialogId = mergeDialogId;
                 }
                 if (!ids.isEmpty()) {
-                    // === anti-delete module hook: if any of these messages are
-                    // themselves already-rendered ghost/anti-delete bubbles, mark
-                    // them as "really delete my saved copy" rather than letting
-                    // MessagesController's capture hook re-save them. See
-                    // AntiDeleteState / section 6.2. ===
-                    if (selectedGroup != null) {
-                        for (int a = 0; a < selectedGroup.messages.size(); a++) {
-                            MessageObject mo = selectedGroup.messages.get(a);
-                            if (mo.messageOwner != null && mo.messageOwner.antiDeleted) {
-                                org.telegram.messenger.antidelete.AntiDeleteState.permitDeleteMessage(thisDialogId, mo.getId());
-                            }
-                        }
-                    } else if (selectedMessage.messageOwner != null && selectedMessage.messageOwner.antiDeleted) {
-                        org.telegram.messenger.antidelete.AntiDeleteState.permitDeleteMessage(thisDialogId, selectedMessage.getId());
-                    }
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, thisDialogId, topicId, deleteForAll[0], mode);
                 }
                 for (MessageObject msg: ephemeralMessages) {
@@ -8196,15 +8181,6 @@ public class AlertsCreator {
                             if (msg.messageOwner.random_id != 0 && msg.type != 10) {
                                 random_ids.add(msg.messageOwner.random_id);
                             }
-                        }
-                    }
-                    // === anti-delete module hook: same as above, for the
-                    // multi-selection path. ===
-                    for (int b = 0; b < selectedMessages[a].size(); b++) {
-                        MessageObject mo = selectedMessages[a].valueAt(b);
-                        if (mo.messageOwner != null && mo.messageOwner.antiDeleted) {
-                            long permitDialogId = (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId;
-                            org.telegram.messenger.antidelete.AntiDeleteState.permitDeleteMessage(permitDialogId, mo.getId());
                         }
                     }
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId, topicId, deleteForAll[0], mode);
