@@ -138,6 +138,8 @@ import org.telegram.messenger.UserObject;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.WebFile;
 import org.telegram.messenger.browser.Browser;
+import org.telegram.messenger.antidelete.AntiDeleteConfig;
+import org.telegram.messenger.antidelete.AntiDeleteUI;
 import org.telegram.messenger.utils.Choreographer60FpsContent;
 import org.telegram.messenger.utils.CountdownTimer;
 import org.telegram.messenger.utils.DrawableUtils;
@@ -1812,6 +1814,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     public final TransitionParams transitionParams = new TransitionParams();
     private boolean edited;
+    public boolean antiDeleted;
+    public AnimatorSet antiDeletedAnimation;
     private boolean imageDrawn;
     private boolean photoImageOutOfBounds;
 
@@ -18369,6 +18373,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             author = MessagesController.getInstance(currentAccount).getUser(fromId);
         }
         boolean hasReplies = messageObject.hasReplies();
+        boolean rawAntiDeleted = messageObject.messageOwner != null && messageObject.messageOwner.antiDeleted;
         if (messageObject.scheduled || messageObject.messageOwner.edit_hide) {
             edited = false;
         } else if (currentPosition == null || currentMessagesGroup == null || currentMessagesGroup.messages.isEmpty()) {
@@ -18385,6 +18390,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     }
                 }
             }
+            this.antiDeleted = rawAntiDeleted && !messageObject.scheduled && !currentMessageObject.isLiveLocation() && currentMessageObject.getDialogId() != 777000;
         }
         if (currentMessageObject.notime || currentMessageObject.isSponsored() || currentMessageObject.isQuickReply()) {
             timeString = "";
@@ -18448,6 +18454,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 currentTimeString = TextUtils.concat(getString(R.string.MessageScheduledRepeatDaily), ", ", currentTimeString);
             } else {
                 currentTimeString = TextUtils.concat(formatString(R.string.MessageScheduledRepeatSeconds, period), ", ", currentTimeString);
+            }
+        }
+        if (this.antiDeleted) {
+            CharSequence deletedIcon = AntiDeleteUI.getDeletedIcon();
+            if (!TextUtils.isEmpty(deletedIcon)) {
+                currentTimeString = new SpannableStringBuilder().append(deletedIcon).append(" ").append(currentTimeString);
             }
         }
         timeTextWidth = timeWidth = (int) Math.ceil(Theme.chat_timePaint.measureText(currentTimeString, 0, currentTimeString == null ? 0 : currentTimeString.length()));
@@ -27737,6 +27749,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     @Override
     public void setAlpha(float alpha) {
+        if (AntiDeleteConfig.semiTransparentDeletedMessages && antiDeleted && antiDeletedAnimation == null && alpha > 0.75f) {
+            alpha = 0.7f;
+        }
         if ((alpha == 1f) != (getAlpha() == 1)) {
             invalidate();
         }
@@ -27750,6 +27765,24 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 (currentPosition == null || ((currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) != 0 && (currentPosition.flags & MessageObject.POSITION_FLAG_LEFT) != 0)) && !reactionsLayoutInBubble.isSmall) { // Reactions
             invalidate();
         }
+    }
+
+    public void startDeletedAlphaAnimation(float target) {
+        if (antiDeletedAnimation != null) {
+            antiDeletedAnimation.cancel();
+        }
+        antiDeletedAnimation = new AnimatorSet();
+        ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(this, View.ALPHA, getAlpha(), target);
+        alphaAnimator.setDuration(250L);
+        alphaAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+        antiDeletedAnimation.playTogether(alphaAnimator);
+        antiDeletedAnimation.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                antiDeletedAnimation = null;
+            }
+        });
+        antiDeletedAnimation.start();
     }
 
     public int getCurrentBackgroundLeft() {

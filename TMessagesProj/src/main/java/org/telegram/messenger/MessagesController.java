@@ -57,6 +57,11 @@ import org.telegram.SQLite.SQLiteDatabase;
 import org.telegram.SQLite.SQLiteException;
 import org.telegram.SQLite.SQLitePreparedStatement;
 import org.telegram.messenger.browser.Browser;
+import org.telegram.messenger.antidelete.AntiDeleteConfig;
+import org.telegram.messenger.antidelete.AntiDeleteController;
+import org.telegram.messenger.antidelete.AntiDeleteHook;
+import org.telegram.messenger.antidelete.AntiDeleteState;
+import org.telegram.messenger.antidelete.SaveMessageRequest;
 import org.telegram.messenger.support.LongSparseIntArray;
 import org.telegram.messenger.support.LongSparseLongArray;
 import org.telegram.messenger.utils.EphemeralMessagesHelper;
@@ -203,6 +208,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public long giveawayCountriesMax = 10;
     public long giveawayBoostsPerPremium = 4;
     public long boostsPerSentGift = 3;
+    private AntiDeleteController antiDeleteController;
 
     public static TLRPC.Peer getPeerFromInputPeer(TLRPC.InputPeer peer) {
         if (peer.chat_id != 0) {
@@ -1019,6 +1025,13 @@ public class MessagesController extends BaseController implements NotificationCe
             tonesController = new AiTonesController(currentAccount);
         }
         return tonesController;
+    }
+
+    public AntiDeleteController getAntiDeleteController() {
+        if (antiDeleteController == null) {
+            antiDeleteController = AntiDeleteController.getInstance(currentAccount);
+        }
+        return antiDeleteController;
     }
 
     public boolean isCommunity(long dialogId) {
@@ -9321,6 +9334,19 @@ public class MessagesController extends BaseController implements NotificationCe
         deleteMessages(messages, randoms, encryptedChat, dialogId, forAll, mode, cacheOnly, 0, null, topicId);
     }
 
+    private MessageObject getExistingMessageInAnyWay(long dialogId, int messageId) {
+        MessageObject existing = dialogMessagesByIds.get(messageId);
+        if (existing != null) {
+            return existing;
+        }
+        TLRPC.Message loaded = getMessagesStorage().getMessage(dialogId, messageId);
+        if (loaded == null) {
+            return null;
+        }
+        loaded.dialog_id = dialogId;
+        return new MessageObject(currentAccount, loaded, false, false);
+    }
+
     public void deleteMessages(ArrayList<Integer> messages, ArrayList<Long> randoms, TLRPC.EncryptedChat encryptedChat, long dialogId, boolean forAll, int mode, boolean cacheOnly, long taskId, TLObject taskRequest, int topicId) {
         deleteMessages(messages, randoms, encryptedChat, dialogId, forAll, mode, cacheOnly, taskId, taskRequest, topicId, false, 0);
     }
@@ -9330,6 +9356,40 @@ public class MessagesController extends BaseController implements NotificationCe
         final boolean quickReplies = mode == ChatActivity.MODE_QUICK_REPLIES;
         if ((messages == null || messages.isEmpty()) && taskId == 0) {
             return;
+        }
+        // Anti-delete hook: capture messages before local purge.
+        if (taskId == 0 && !scheduled && !quickReplies && AntiDeleteConfig.saveDeletedMessageFor(currentAccount, dialogId)) {
+            AntiDeleteController controller = getAntiDeleteController();
+            AntiDeleteController.AntiDeleteMessageDeleteWrapper wrapper = controller.wrapDelete();
+            if (messages != null) {
+                for (int i = 0; i < messages.size(); i++) {
+                    Integer msgId = messages.get(i);
+                    if (msgId == null) {
+                        continue;
+                    }
+                    MessageObject existing = getExistingMessageInAnyWay(dialogId, msgId);
+                    if (existing != null && (existing.messageOwner.antiDeleted || AntiDeleteState.isDeleteMessagePermitted(dialogId, msgId))) {
+                        wrapper.deleteMessage(dialogId, msgId);
+                    } else if (existing != null && existing.messageOwner != null) {
+                        controller.onMessageDeleted(new SaveMessageRequest(currentAccount, existing.messageOwner, dialogId, topicId));
+                    }
+                }
+            }
+            if (randoms != null) {
+                for (int i = 0; i < randoms.size(); i++) {
+                    long randomId = randoms.get(i);
+                    MessageObject existing = dialogMessagesByRandomIds.get(randomId);
+                    if (existing == null || existing.messageOwner == null) {
+                        continue;
+                    }
+                    if (existing.messageOwner.antiDeleted) {
+                        wrapper.deleteMessage(existing.getDialogId(), existing.getId());
+                    } else {
+                        controller.onMessageDeleted(new SaveMessageRequest(currentAccount, existing.messageOwner, existing.getDialogId(), topicId));
+                    }
+                }
+            }
+            wrapper.commit();
         }
         ArrayList<Integer> toSend = null;
         long channelId;
@@ -12189,6 +12249,12 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }
             }
+        }
+        // Anti-delete hook: inject locally recovered deleted messages into loaded page.
+        int adjustedCount = AntiDeleteHook.inject(currentAccount, objects, messagesRes, count, dialogId, threadMessageId, mode, isCache);
+        if (adjustedCount != AntiDeleteHook.NO_CHANGE) {
+            count = adjustedCount;
+            resCount = objects.size();
         }
 
         Timer.done(t1);
