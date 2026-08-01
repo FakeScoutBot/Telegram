@@ -18,7 +18,7 @@ public interface DeletedMessageDao {
     void insertReaction(DeletedMessageReaction reaction);
 
     @Query("SELECT EXISTS(SELECT 1 FROM deleted_messages WHERE userId = :userId AND dialogId = :dialogId AND messageId = :messageId)")
-    boolean exists(long userId, long dialogId, int messageId);
+    boolean exists(long userId, long dialogId, long topicId, int messageId);
 
     @Transaction
     @Query("SELECT * FROM deleted_messages WHERE userId = :userId AND dialogId = :dialogId AND messageId = :messageId LIMIT 1")
