@@ -57499,11 +57499,6 @@ public class TLRPC {
         public String originalLanguage; //custom
         public String translatedToLanguage; //custom
         public TL_textWithEntities translatedText; //custom
-        // --- anti-delete module hook: runtime-only flag, never part of TL wire
-        // format -- do NOT read/write this in serializeToStream/readParams.
-        // Set true only by org.telegram.messenger.antidelete.AntiDeleteMapper
-        // when reconstructing a captured deleted message for display. ---
-        public boolean antiDeleted; //custom
         public TL_iv.RichMessage translatedRichMessage; //custom
         public TL_textWithEntities translatedVoiceTranscription; //custom
         public TranslateController.PollText translatedPoll; //custom
