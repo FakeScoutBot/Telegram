@@ -9351,6 +9351,35 @@ public class MessagesController extends BaseController implements NotificationCe
             } else if (welcomeMessages) {
                 getMessagesStorage().markMessagesAsDeleted(dialogId, messages, true, false, ChatActivity.MODE_WELCOME_MESSAGES, topicId);
             } else {
+                // === anti-delete module hook: capture BEFORE purge =========
+                // This is the single funnel every deletion path in the app goes
+                // through (self-delete, delete-others-in-group, and server-pushed
+                // TL_updateDeleteMessages/TL_updateDeleteChannelMessages via
+                // processUpdateArray -> deleteMessages), so no special-casing of
+                // "who deleted it" is needed here -- see AntiDeleteMapper/section 6.
+                if (org.telegram.messenger.antidelete.AntiDeleteConfig.getInstance(currentAccount).saveDeletedMessages) {
+                    org.telegram.messenger.antidelete.AntiDeleteController antiDeleteController =
+                        org.telegram.messenger.antidelete.AntiDeleteController.getInstance(currentAccount);
+                    org.telegram.messenger.antidelete.AntiDeleteMessageDeleteWrapper antiDeleteWrapper = antiDeleteController.wrapDelete();
+                    for (int a = 0, N = messages.size(); a < N; a++) {
+                        int msgId = messages.get(a);
+                        if (org.telegram.messenger.antidelete.AntiDeleteState.isDeleteMessagePermitted(dialogId, msgId)) {
+                            // This id was already an anti-delete ghost bubble that the
+                            // user explicitly chose to purge from local recovery
+                            // history (see AntiDeleteState) -- really delete our own
+                            // saved copy instead of re-capturing it.
+                            antiDeleteWrapper.deleteMessage(dialogId, msgId);
+                        } else {
+                            MessageObject existing = channelId == 0 ? dialogMessagesByIds.get(msgId) : null;
+                            TLRPC.Message existingMessage = existing != null ? existing.messageOwner : getMessagesStorage().getMessage(dialogId, msgId);
+                            if (existingMessage != null) {
+                                antiDeleteController.onMessageDeleted(new org.telegram.messenger.antidelete.SaveMessageRequest(currentAccount, existingMessage, dialogId, topicId));
+                            }
+                        }
+                    }
+                    antiDeleteWrapper.commit();
+                }
+                // === end anti-delete module hook ============================
                 if (channelId == 0) {
                     for (int a = 0; a < messages.size(); a++) {
                         Integer id = messages.get(a);
@@ -12249,6 +12278,12 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
             }
         }
+
+        // === anti-delete module hook: inject saved deleted messages into this
+        // freshly-loaded page, right after Telegram's own reply-linking loop
+        // above and before this page is handed off to ChatActivity. ==========
+        org.telegram.messenger.antidelete.AntiDeleteHook.inject(currentAccount, objects, dialogId, threadMessageId, isTopic, mode);
+        // === end anti-delete module hook ====================================
 
         Timer.done(t1);
         Timer.Task t2 = Timer.start(loaderLogger, "processLoadedMessages: runOnUIThread");
