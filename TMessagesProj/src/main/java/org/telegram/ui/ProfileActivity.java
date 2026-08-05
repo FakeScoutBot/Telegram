@@ -11841,9 +11841,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (copyFromChatActivity || (currentChat.megagroup && chatInfo != null && onlineCount > 0) || isTopic) {
                         onlineTextView[a].setText(a == 0 ? statusString : appendCommunityHiddenRow(profileStatusString));
                     } else if (a == 0 && ChatObject.isChannel(currentChat) && chatInfo != null && chatInfo.participants_count != 0 && (currentChat.megagroup || currentChat.broadcast)) {
-                        int[] result = new int[1];
-                        boolean ignoreShort = AndroidUtilities.isAccessibilityScreenReaderEnabled();
-                        String shortNumber = ignoreShort ? String.valueOf(result[0] = chatInfo.participants_count) : LocaleController.formatShortNumber(chatInfo.participants_count, result);
                         if (currentChat.megagroup) {
                             if (chatInfo.participants_count == 0) {
                                 if (chat.has_geo) {
@@ -11854,11 +11851,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                     onlineTextView[a].setText(LocaleController.getString(R.string.MegaPrivate).toLowerCase());
                                 }
                             } else {
-                                CharSequence statusText = LocaleController.formatPluralString("Members", result[0]).replace(String.format("%d", result[0]), shortNumber);
+                                CharSequence statusText = LocaleController.formatPluralStringComma("Members", chatInfo.participants_count);
                                 onlineTextView[a].setText(a == 0 ? statusText : appendCommunityHiddenRow(statusText));
                             }
                         } else {
-                            onlineTextView[a].setText(LocaleController.formatPluralString("Subscribers", result[0]).replace(String.format("%d", result[0]), shortNumber));
+                            onlineTextView[a].setText(LocaleController.formatPluralStringComma("Subscribers", chatInfo.participants_count));
                         }
                     } else {
                         onlineTextView[a].setText(a == 0 ? statusString : appendCommunityHiddenRow(profileStatusString));
