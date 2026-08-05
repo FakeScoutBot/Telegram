@@ -16,12 +16,14 @@ import org.telegram.tgnet.tl.TL_iv;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Cells.TextSelectionHelper;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.ItemOptions;
 import org.telegram.ui.Components.LayoutHelper;
-import org.telegram.ui.Components.TextSelectionHelper;
 
 import java.util.ArrayList;
+
+import static org.telegram.messenger.LocaleController.getString;
 
 /**
  * Local-only rich note editor. Hosts the same RichEditorListView / RichEditorToolbar
