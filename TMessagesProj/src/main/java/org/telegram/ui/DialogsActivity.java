@@ -13733,9 +13733,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             args.putLong("user_id", UserConfig.getInstance(currentAccount).getClientUserId());
             presentFragment(new ChatActivity(args));
         });
-        io.add(R.drawable.outline_notes_24, "Notes", () -> {
-            presentFragment(new org.telegram.ui.iv.NotesListActivity());
-        });
         if (ApplicationLoader.applicationLoaderInstance != null) {
             ApplicationLoader.applicationLoaderInstance.addItemOptions(io);
         }
