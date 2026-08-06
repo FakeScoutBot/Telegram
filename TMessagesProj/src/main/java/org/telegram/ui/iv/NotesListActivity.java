@@ -73,7 +73,7 @@ public class NotesListActivity extends BaseFragment {
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         listView.setOnItemClickListener((view, position) -> {
             if (position < 0 || position >= notes.size()) return;
-            presentFragment(new NoteReadActivity(notes.get(position).id));
+            presentFragment(new NoteEditActivity(notes.get(position).id));
         });
         listView.setOnItemLongClickListener((view, position) -> {
             if (position < 0 || position >= notes.size()) return false;
