@@ -658,6 +658,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int channelInfoRow;
     private int usernameRow;
     private int idRow;
+    private int cachedIdRowDcId = -1;
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -10884,7 +10885,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (ChatObject.isPublic(currentChat)) {
                     usernameRow = rowCount++;
                 }
-                idRow = rowCount++;
             }
             if (emptyRow < 0 && emptyRow2 < 0) {
                 if (hasMusic || peerColor != null || actionsView == null) {
@@ -10893,6 +10893,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     emptyRow = rowCount++;
                 }
             }
+            idRow = rowCount++;
             if (actionsView == null) {
                 if (infoHeaderRow != -1) {
                     notificationsDividerRow = rowCount++;
@@ -13523,6 +13524,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             TLRPC.User dcUser = getMessagesController().getUser(userId);
                             displayedId = userId;
                             dcId = dcUser != null && dcUser.photo != null ? dcUser.photo.dc_id : -1;
+                        }
+                        if (dcId > 0) {
+                            cachedIdRowDcId = dcId;
+                        } else if (cachedIdRowDcId > 0) {
+                            dcId = cachedIdRowDcId;
                         }
                         String dcCaption = dcId > 0 ? ("DC: " + dcId) : "DC: —";
                         detailCell.setTextAndValue(String.valueOf(displayedId), dcCaption, false);
