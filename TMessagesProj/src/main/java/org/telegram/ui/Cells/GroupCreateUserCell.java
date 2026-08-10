@@ -38,6 +38,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
+import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.ConnectionsManager;
@@ -462,7 +463,7 @@ public class GroupCreateUserCell extends FrameLayout {
                         statusTextView.setTextColor(Theme.getColor(forceDarkTheme ? Theme.key_voipgroup_lastSeenText : Theme.key_windowBackgroundWhiteGrayText, resourcesProvider));
                         statusTextView.setText(LocaleController.getString(R.string.Bot));
                     } else {
-                        if (currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId() || currentUser.status != null && currentUser.status.expires > ConnectionsManager.getInstance(currentAccount).getCurrentTime() || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(currentUser.id)) {
+                        if (!(SharedConfig.stealthModeEnabled && currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId()) && (currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId() || currentUser.status != null && currentUser.status.expires > ConnectionsManager.getInstance(currentAccount).getCurrentTime() || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(currentUser.id))) {
                             statusTextView.setTag(Theme.key_windowBackgroundWhiteBlueText);
                             statusTextView.setTextColor(Theme.getColor(forceDarkTheme ? Theme.key_voipgroup_listeningText : Theme.key_windowBackgroundWhiteBlueText, resourcesProvider));
                             statusTextView.setText(LocaleController.getString(R.string.Online));

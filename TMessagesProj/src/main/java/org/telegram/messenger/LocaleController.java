@@ -3005,6 +3005,12 @@ public class LocaleController {
     }
 
     public static String formatUserStatus(int currentAccount, TLRPC.User user, boolean[] isOnline, boolean[] madeShorter) {
+        if (user != null && SharedConfig.stealthModeEnabled && user.id == UserConfig.getInstance(currentAccount).getClientUserId()) {
+            // Stealth mode makes the server tell other users we're offline (see
+            // MessagesController.updateTimerProc), so our own profile/status displays
+            // should match what they actually see instead of our own true online state.
+            return getString("Lately", R.string.Lately);
+        }
         if (user != null && user.status != null && user.status.expires == 0) {
             if (user.status instanceof TLRPC.TL_userStatusRecently) {
                 user.status.expires = user.status.by_me ? -1000 : -100;
