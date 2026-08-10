@@ -658,7 +658,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int channelInfoRow;
     private int usernameRow;
     private int idRow;
-    private int cachedIdRowDcId = -1;
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -13524,11 +13523,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             TLRPC.User dcUser = getMessagesController().getUser(userId);
                             displayedId = userId;
                             dcId = dcUser != null && dcUser.photo != null ? dcUser.photo.dc_id : -1;
-                        }
-                        if (dcId > 0) {
-                            cachedIdRowDcId = dcId;
-                        } else if (cachedIdRowDcId > 0) {
-                            dcId = cachedIdRowDcId;
                         }
                         String dcCaption = dcId > 0 ? ("DC: " + dcId) : "DC: —";
                         detailCell.setTextAndValue(String.valueOf(displayedId), dcCaption, false);
