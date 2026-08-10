@@ -11384,6 +11384,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else {
                     if (userInfo != null && userInfo.stars_rating != null && userInfo.stars_rating.stars < 0) {
                         newString2 = getString(R.string.StarRatingLevelNegative).toLowerCase(Locale.ROOT);
+                    } else if (SharedConfig.stealthModeEnabled) {
+                        newString2 = LocaleController.formatUserStatus(currentAccount, user, isOnline);
                     } else {
                         newString2 = LocaleController.getString(R.string.Online);
                     }
