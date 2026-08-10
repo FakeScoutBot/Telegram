@@ -292,6 +292,7 @@ public class SharedConfig {
     public static boolean roundCamera16to9 = true;
     public static boolean noSoundHintShowed = false;
     public static boolean stealthModeEnabled = false;
+    public static int stealthModeLastSeen = 0;
     public static boolean forceAllowScreenshots = false;
     public static boolean streamMedia = true;
     public static boolean streamAllVideo = false;
@@ -630,6 +631,7 @@ public class SharedConfig {
             sortFilesByName = preferences.getBoolean("sortFilesByName", false);
             noSoundHintShowed = preferences.getBoolean("noSoundHintShowed", false);
             stealthModeEnabled = preferences.getBoolean("stealthModeEnabled", false);
+            stealthModeLastSeen = preferences.getInt("stealthModeLastSeen", 0);
             forceAllowScreenshots = preferences.getBoolean("forceAllowScreenshots", false);
             directShareHash = preferences.getString("directShareHash2", null);
             useThreeLinesLayout = preferences.getBoolean("useThreeLinesLayout", false);
@@ -1261,6 +1263,17 @@ public class SharedConfig {
                 MessagesController.getInstance(a).onStealthModeChanged();
             }
         }
+    }
+
+    public static void setStealthModeLastSeen(int value) {
+        if (stealthModeLastSeen == value) {
+            return;
+        }
+        stealthModeLastSeen = value;
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt("stealthModeLastSeen", stealthModeLastSeen);
+        editor.apply();
     }
 
     public static void setForceAllowScreenshots(boolean value) {
