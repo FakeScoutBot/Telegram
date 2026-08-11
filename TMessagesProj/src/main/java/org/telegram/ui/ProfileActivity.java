@@ -13515,17 +13515,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         detailCell.setTextAndValue(text, LocaleController.getString(isFragmentPhoneNumber ? R.string.AnonymousNumber : R.string.PhoneMobile), false);
                     } else if (position == idRow) {
                         long displayedId;
+                        String displayedIdText;
                         int dcId;
                         if (chatId != 0) {
                             displayedId = chatId;
+                            displayedIdText = (ChatObject.isChannel(currentChat) ? "-100" : "-") + chatId;
                             dcId = currentChat != null && currentChat.photo != null ? currentChat.photo.dc_id : -1;
                         } else {
                             TLRPC.User dcUser = getMessagesController().getUser(userId);
                             displayedId = userId;
+                            displayedIdText = String.valueOf(displayedId);
                             dcId = dcUser != null && dcUser.photo != null ? dcUser.photo.dc_id : -1;
                         }
                         String dcCaption = dcId > 0 ? ("DC: " + dcId) : "DC: —";
-                        detailCell.setTextAndValue(String.valueOf(displayedId), dcCaption, false);
+                        detailCell.setTextAndValue(displayedIdText, dcCaption, false);
                     } else if (position == noteRow) {
                         final TLRPC.UserFull userInfo = getMessagesController().getUserFull(userId);
                         if (userInfo == null) return;
