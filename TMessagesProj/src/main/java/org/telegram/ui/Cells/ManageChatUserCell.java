@@ -25,7 +25,6 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
-import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.ConnectionsManager;
@@ -300,7 +299,7 @@ public class ManageChatUserCell extends FrameLayout {
                     if (subtitleUsername && !TextUtils.isEmpty(username)) {
                         statusTextView.setText(username);
                         statusTextView.setTextColor(statusColor);
-                    } else if (!(SharedConfig.stealthModeEnabled && currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId()) && (currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId() || currentUser.status != null && currentUser.status.expires > ConnectionsManager.getInstance(currentAccount).getCurrentTime() || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(currentUser.id))) {
+                    } else if (currentUser.id == UserConfig.getInstance(currentAccount).getClientUserId() || currentUser.status != null && currentUser.status.expires > ConnectionsManager.getInstance(currentAccount).getCurrentTime() || MessagesController.getInstance(currentAccount).onlinePrivacy.containsKey(currentUser.id)) {
                         statusTextView.setTextColor(statusOnlineColor);
                         statusTextView.setText(LocaleController.getString(R.string.Online));
                     } else {
