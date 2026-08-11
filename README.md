@@ -40,7 +40,3 @@ You will require Android Studio 2025.1.4, Android NDK 27.2.12479018 and Android 
 5. Open the project in the Studio (note that it should be opened, NOT imported).
 6. Fill out values in TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java – there’s a link for each of the variables showing where and which data to obtain.
 7. You are ready to compile Telegram.
-
-### Localization
-
-We moved all translations to https://translations.telegram.org/en/android/. Please use it.
