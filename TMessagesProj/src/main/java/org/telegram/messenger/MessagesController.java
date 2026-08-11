@@ -10564,13 +10564,11 @@ public class MessagesController extends BaseController implements NotificationCe
 
                     TL_account.updateStatus req = new TL_account.updateStatus();
                     req.offline = true;
-                    final int sentTime = getConnectionsManager().getCurrentTime();
                     statusRequest = getConnectionsManager().sendRequest(req, (response, error) -> {
                         if (error == null) {
                             lastStatusUpdateTime = System.currentTimeMillis();
                             offlineSent = true;
                             statusSettingState = 0;
-                            SharedConfig.setStealthModeLastSeen(sentTime);
                         } else {
                             if (lastStatusUpdateTime != 0) {
                                 lastStatusUpdateTime += 5000;

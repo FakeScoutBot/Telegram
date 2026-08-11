@@ -3006,12 +3006,10 @@ public class LocaleController {
 
     public static String formatUserStatus(int currentAccount, TLRPC.User user, boolean[] isOnline, boolean[] madeShorter) {
         if (user != null && SharedConfig.stealthModeEnabled && user.id == UserConfig.getInstance(currentAccount).getClientUserId()) {
-            // Stealth mode makes the server tell other users we went offline - use the
-            // actual timestamp that was sent with that offline update (SharedConfig.
-            // stealthModeLastSeen) so this matches what they really see, instead of
-            // live "now", which would just show the current time on every refresh.
-            final long lastSeen = SharedConfig.stealthModeLastSeen > 0 ? SharedConfig.stealthModeLastSeen : ConnectionsManager.getInstance(currentAccount).getCurrentTime();
-            return formatDateOnline(lastSeen, madeShorter);
+            // Stealth mode makes the server tell other users we went offline just now
+            // (see MessagesController.updateTimerProc), so mirror that here using
+            // Telegram's own "last seen at ..." formatting instead of a generic string.
+            return formatDateOnline(ConnectionsManager.getInstance(currentAccount).getCurrentTime(), madeShorter);
         }
         if (user != null && user.status != null && user.status.expires == 0) {
             if (user.status instanceof TLRPC.TL_userStatusRecently) {
