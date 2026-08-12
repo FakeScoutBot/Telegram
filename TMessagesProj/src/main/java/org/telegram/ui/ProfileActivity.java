@@ -7404,7 +7404,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             return true;
         } else if (position == idRow) {
             try {
-                AndroidUtilities.addToClipboard(String.valueOf(chatId != 0 ? chatId : userId));
+                String idText;
+                if (chatId != 0) {
+                    idText = (ChatObject.isChannel(currentChat) ? "-100" : "-") + chatId;
+                } else {
+                    idText = String.valueOf(userId);
+                }
+                AndroidUtilities.addToClipboard(idText);
                 BulletinFactory.of(this).createCopyBulletin(LocaleController.getString(R.string.TextCopied), resourcesProvider).show();
             } catch (Exception e) {
                 FileLog.e(e);
@@ -10720,11 +10726,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (userInfo != null && !TextUtils.isEmpty(userInfo.about)) {
                     userInfoRow = rowCount++;
                 }
-                if (user != null && username != null) {
-                    usernameRow = rowCount++;
-                }
                 if (user != null) {
                     idRow = rowCount++;
+                }
+                if (user != null && username != null) {
+                    usernameRow = rowCount++;
                 }
                 if (userInfo != null) {
                     if (userInfo.birthday != null) {
@@ -10873,6 +10879,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (actionsView == null) {
                     infoHeaderRow = rowCount++;
                 }
+                idRow = rowCount++;
                 if (chatInfo != null) {
                     if (!TextUtils.isEmpty(chatInfo.about)) {
                         channelInfoRow = rowCount++;
@@ -10892,7 +10899,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     emptyRow = rowCount++;
                 }
             }
-            idRow = rowCount++;
+            if (idRow < 0) {
+                idRow = rowCount++;
+            }
             if (actionsView == null) {
                 if (infoHeaderRow != -1) {
                     notificationsDividerRow = rowCount++;
